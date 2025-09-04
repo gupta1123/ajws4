@@ -23,6 +23,82 @@ import { useLeaveRequests } from '@/hooks/use-leave-requests';
 import { useSearchParams } from 'next/navigation';
 import { formatDate } from '@/lib/utils';
 
+// Skeleton Loader Components
+const LeaveRequestsTableSkeleton = () => (
+  <div className="rounded-md border">
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Student</TableHead>
+          <TableHead>Class Info</TableHead>
+          <TableHead>Dates</TableHead>
+          <TableHead>Reason</TableHead>
+          <TableHead>Requested Date</TableHead>
+          <TableHead>Status</TableHead>
+          <TableHead className="text-right">Actions</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {Array.from({ length: 8 }).map((_, index) => (
+          <TableRow key={index}>
+            {/* Student Info Skeleton */}
+            <TableCell>
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse"></div>
+                <div className="space-y-2">
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-32"></div>
+                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-24"></div>
+                </div>
+              </div>
+            </TableCell>
+
+            {/* Class Info Skeleton */}
+            <TableCell>
+              <div className="space-y-2">
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-20"></div>
+                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-16"></div>
+              </div>
+            </TableCell>
+
+            {/* Dates Skeleton */}
+            <TableCell>
+              <div className="space-y-2">
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-24"></div>
+                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-20"></div>
+              </div>
+            </TableCell>
+
+            {/* Reason Skeleton */}
+            <TableCell>
+              <div className="space-y-1">
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-full max-w-48"></div>
+                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-3/4"></div>
+              </div>
+            </TableCell>
+
+            {/* Requested Date Skeleton */}
+            <TableCell>
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-24"></div>
+            </TableCell>
+
+            {/* Status Skeleton */}
+            <TableCell>
+              <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse w-20"></div>
+            </TableCell>
+
+            {/* Actions Skeleton */}
+            <TableCell className="text-right">
+              <div className="flex justify-end gap-2">
+                <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-16"></div>
+                <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-16"></div>
+              </div>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  </div>
+);
 
 // Simple status badge component with theme support
 const StatusBadge = ({ status }: { status: string }) => {
@@ -503,10 +579,7 @@ function LeaveRequestsContent() {
               {/* Leave Requests Table */}
               <div className="rounded-md border">
                 {loading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                    <span className="ml-2 text-muted-foreground">Loading leave requests...</span>
-                  </div>
+                  <LeaveRequestsTableSkeleton />
                 ) : (
                   <Table>
                     <TableHeader>

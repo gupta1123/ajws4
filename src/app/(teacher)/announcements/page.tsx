@@ -13,6 +13,52 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth/context';
 import { createAnnouncementsAPI, TeacherAnnouncementsResponse, Announcement, AnnouncementFilters } from '@/lib/api/announcements';
 
+// Skeleton Loader Components
+const AnnouncementTableSkeleton = () => (
+  <Card>
+    <CardContent className="p-0">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-[300px]">Title</TableHead>
+            <TableHead>Type</TableHead>
+            <TableHead>Priority</TableHead>
+            <TableHead>Created</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {Array.from({ length: 5 }).map((_, index) => (
+            <TableRow key={index}>
+              <TableCell>
+                <div className="space-y-2">
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-3/4"></div>
+                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-1/2"></div>
+                </div>
+              </TableCell>
+              <TableCell>
+                <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-16"></div>
+              </TableCell>
+              <TableCell>
+                <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-12"></div>
+              </TableCell>
+              <TableCell>
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-20"></div>
+              </TableCell>
+              <TableCell className="text-right">
+                <div className="flex justify-end gap-2">
+                  <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-16"></div>
+                  <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-16"></div>
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </CardContent>
+  </Card>
+);
+
 
 
 const announcementTypes = [
@@ -34,7 +80,9 @@ export default function AnnouncementsPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
-  const [priorityFilter, setPriorityFilter] = useState<string>('all');
+  const [datePreset, setDatePreset] = useState<string>('this-month');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
 
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -42,6 +90,43 @@ export default function AnnouncementsPage() {
   const { toast } = useToast();
   const { token } = useAuth();
   const router = useRouter();
+
+  // Set date range based on preset
+  const setDateRange = (preset: string) => {
+    const now = new Date();
+    let start: Date;
+    let end: Date;
+
+    switch (preset) {
+      case 'this-month':
+        start = new Date(now.getFullYear(), now.getMonth(), 1);
+        end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+        break;
+      case 'next-month':
+        start = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        end = new Date(now.getFullYear(), now.getMonth() + 2, 0, 23, 59, 59);
+        break;
+      case 'last-month':
+        start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+        break;
+      case 'this-week':
+        const dayOfWeek = now.getDay();
+        start = new Date(now);
+        start.setDate(now.getDate() - dayOfWeek);
+        start.setHours(0, 0, 0, 0);
+        end = new Date(start);
+        end.setDate(start.getDate() + 6);
+        end.setHours(23, 59, 59, 999);
+        break;
+      default:
+        // Custom - don't change dates if already set
+        return;
+    }
+
+    setStartDate(start.toISOString().split('T')[0]); // YYYY-MM-DD format
+    setEndDate(end.toISOString().split('T')[0]); // YYYY-MM-DD format
+  };
 
 
 
@@ -62,14 +147,12 @@ export default function AnnouncementsPage() {
         if (typeFilter !== 'all') {
           filters.announcement_type = typeFilter;
         }
-        if (priorityFilter !== 'all') {
-          filters.priority = priorityFilter;
-        }
 
-        // Add publish date filter (last 30 days by default)
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        filters.start_date = thirtyDaysAgo.toISOString();
+        // Add date filters if set
+        if (startDate && endDate) {
+          filters.start_date = startDate + 'T00:00:00Z';
+          filters.end_date = endDate + 'T23:59:59Z';
+        }
 
         console.log('Fetching announcements with filters:', filters);
 
@@ -91,11 +174,27 @@ export default function AnnouncementsPage() {
       } finally {
         setLoading(false);
       }
-    }, [token, toast, currentPage, typeFilter, priorityFilter]);
+    }, [token, toast, currentPage, typeFilter, startDate, endDate]);
 
   useEffect(() => {
-    fetchAnnouncements();
-  }, [fetchAnnouncements]);
+    if (token) {
+      // Set default date range to this month
+      setDateRange('this-month');
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (token && startDate && endDate) {
+      fetchAnnouncements();
+    }
+  }, [token, startDate, endDate, fetchAnnouncements]);
+
+  // Update dates when preset changes
+  useEffect(() => {
+    if (datePreset !== 'custom') {
+      setDateRange(datePreset);
+    }
+  }, [datePreset]);
 
 
 
@@ -117,22 +216,10 @@ export default function AnnouncementsPage() {
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [typeFilter, priorityFilter]);
+  }, [typeFilter]);
 
 
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'approved':
-        return 'bg-green-100 text-green-800';
-      case 'rejected':
-        return 'bg-red-100 text-red-800';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -198,34 +285,65 @@ export default function AnnouncementsPage() {
               </div>
             </div>
             
-            <div className="flex flex-wrap gap-2">
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="w-32">
-                  <SelectValue placeholder="Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  {announcementTypes.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      {type.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="flex flex-wrap gap-3 items-end">
+              {/* Date Preset Selector */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-muted-foreground">Date Range</label>
+                <Select value={datePreset} onValueChange={setDatePreset}>
+                  <SelectTrigger className="w-36">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="this-month">This Month</SelectItem>
+                    <SelectItem value="next-month">Next Month</SelectItem>
+                    <SelectItem value="last-month">Last Month</SelectItem>
+                    <SelectItem value="this-week">This Week</SelectItem>
+                    <SelectItem value="custom">Custom Range</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                <SelectTrigger className="w-32">
-                  <SelectValue placeholder="Priority" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Priorities</SelectItem>
-                  {priorities.map((priority) => (
-                    <SelectItem key={priority.value} value={priority.value}>
-                      {priority.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* Custom Date Range - Only show when custom is selected */}
+              {datePreset === 'custom' && (
+                <>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-medium text-muted-foreground">From</label>
+                    <Input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="w-32"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-medium text-muted-foreground">To</label>
+                    <Input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="w-32"
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* Type Filter */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-muted-foreground">Type</label>
+                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue placeholder="All Types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    {announcementTypes.map((type) => (
+                      <SelectItem key={type.value} value={type.value}>
+                        {type.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
 
             </div>
@@ -235,12 +353,7 @@ export default function AnnouncementsPage() {
 
       {/* Announcements List */}
       {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-            <p className="text-muted-foreground">Loading announcements...</p>
-          </div>
-        </div>
+        <AnnouncementTableSkeleton />
       ) : filteredAnnouncements.length === 0 ? (
         <Card>
           <CardContent className="p-12 text-center">
@@ -259,7 +372,6 @@ export default function AnnouncementsPage() {
                 <TableRow>
                   <TableHead>Title</TableHead>
                   <TableHead>Type</TableHead>
-                  <TableHead>Status</TableHead>
                   <TableHead>Priority</TableHead>
                   <TableHead>Classes</TableHead>
                   <TableHead>Publish Date</TableHead>
@@ -280,11 +392,6 @@ export default function AnnouncementsPage() {
                     <TableCell>
                       <Badge variant="outline">
                         {announcementTypes.find(t => t.value === announcement.announcement_type)?.label}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={getStatusColor(announcement.status)}>
-                        {announcement.status.charAt(0).toUpperCase() + announcement.status.slice(1)}
                       </Badge>
                     </TableCell>
                     <TableCell>

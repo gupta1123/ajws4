@@ -404,7 +404,7 @@ export default function StudentDetailsPage({ params }: { params: Promise<{ id: s
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Academic Year</TableHead>
+                        <TableHead>Class Teacher</TableHead>
                         <TableHead>Class</TableHead>
                         <TableHead>Division</TableHead>
                         <TableHead>Roll Number</TableHead>
@@ -412,19 +412,33 @@ export default function StudentDetailsPage({ params }: { params: Promise<{ id: s
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {studentData.student_academic_records.map((record) => (
-                        <TableRow key={record.id}>
-                          <TableCell className="font-medium">N/A</TableCell>
-                          <TableCell>{record.class_division.class_level?.name || 'N/A'}</TableCell>
-                          <TableCell>{record.class_division.division || 'N/A'}</TableCell>
-                          <TableCell>{record.roll_number}</TableCell>
-                          <TableCell>
-                            <Badge variant="secondary">
-                              {record.status}
-                            </Badge>
+                      {studentData.student_academic_records && studentData.student_academic_records.length > 0 ? (
+                        studentData.student_academic_records.map((record) => (
+                          <TableRow key={record.id}>
+                            <TableCell className="font-medium">
+                              {record.class_division?.teacher?.full_name || 'Not Assigned'}
+                            </TableCell>
+                            <TableCell>
+                              {record.class_division?.level?.name ||
+                               record.class_division?.class_level?.name ||
+                               'N/A'}
+                            </TableCell>
+                            <TableCell>{record.class_division?.division || 'N/A'}</TableCell>
+                            <TableCell>{record.roll_number || 'N/A'}</TableCell>
+                            <TableCell>
+                              <Badge variant="secondary">
+                                {record.status || 'Unknown'}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                            No academic records found
                           </TableCell>
                         </TableRow>
-                      ))}
+                      )}
                     </TableBody>
                   </Table>
                 </div>
@@ -518,7 +532,6 @@ export default function StudentDetailsPage({ params }: { params: Promise<{ id: s
                           <TableHead>Reason</TableHead>
                           <TableHead>Status</TableHead>
                           <TableHead>Applied Date</TableHead>
-                          <TableHead>Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -526,10 +539,12 @@ export default function StudentDetailsPage({ params }: { params: Promise<{ id: s
                           <TableRow key={leave.id}>
                             <TableCell>
                               <div className="font-medium">
-                                {formatDate(leave.start_date)} - {formatDate(leave.end_date)}
+                                {formatDate(leave.start_date) === formatDate(leave.end_date)
+                                  ? formatDate(leave.start_date)
+                                  : `${formatDate(leave.start_date)} - ${formatDate(leave.end_date)}`}
                               </div>
                               <div className="text-sm text-gray-500">
-                                {Math.ceil((new Date(leave.end_date).getTime() - new Date(leave.start_date).getTime()) / (1000 * 60 * 60 * 24))} day(s)
+                                {Math.ceil((new Date(leave.end_date).getTime() - new Date(leave.start_date).getTime()) / (1000 * 60 * 60 * 24)) + 1} day(s)
                               </div>
                             </TableCell>
                             <TableCell>{leave.reason}</TableCell>
@@ -545,13 +560,6 @@ export default function StudentDetailsPage({ params }: { params: Promise<{ id: s
                               </Badge>
                             </TableCell>
                             <TableCell>{formatDate(leave.created_at)}</TableCell>
-                            <TableCell>
-                              <Button variant="outline" size="sm" asChild>
-                                <Link href={`/leave-requests/${leave.id}`}>
-                                  View Details
-                                </Link>
-                              </Button>
-                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>

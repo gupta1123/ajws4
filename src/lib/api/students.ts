@@ -24,7 +24,12 @@ export interface StudentAcademicRecord {
   class_division: {
     id: string;
     division: string;
-    class_level: {
+    level?: {
+      id: string;
+      name: string;
+      sequence_number: number;
+    };
+    class_level?: {
       id: string;
       name: string;
       sequence_number: number;
@@ -32,6 +37,10 @@ export interface StudentAcademicRecord {
     teacher?: {
       id: string;
       full_name: string;
+    };
+    academic_year?: {
+      id: string;
+      year_name: string;
     };
   };
 }

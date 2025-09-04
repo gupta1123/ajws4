@@ -12,6 +12,116 @@ import { Attachment, Announcement } from '@/lib/api/announcements';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
+// Skeleton Loader Component for Announcement Detail
+const AnnouncementDetailSkeleton = () => {
+  return (
+    <div className="container mx-auto px-4 py-6 space-y-6">
+    {/* Header with improved layout */}
+    <div className="flex items-start justify-between">
+      <div className="flex items-start gap-4 flex-1">
+        <div className="h-8 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mt-1"></div>
+        <div className="flex-1">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse flex-1"></div>
+            <div className="h-6 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse ml-auto"></div>
+          </div>
+
+          {/* Target Audience - In one line */}
+          <div className="flex items-center gap-4 mt-2">
+            <div className="flex items-center gap-2">
+              <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+              <div className="h-4 w-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+              <div className="flex gap-2">
+                <div className="h-5 w-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                <div className="h-5 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                <div className="h-5 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Action Buttons skeleton - only show if user can edit */}
+      <div className="flex items-center gap-2 ml-4">
+        <div className="h-8 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+        <div className="h-8 w-18 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+      </div>
+    </div>
+
+    {/* Main Content Grid */}
+    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        {/* Main content skeleton */}
+        <div className="xl:col-span-2 space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="h-6 w-48 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-full"></div>
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-3/4"></div>
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-1/2"></div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="h-6 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 border rounded">
+                    <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                    <div className="flex-1 space-y-1">
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-3/4"></div>
+                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-1/2"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Sidebar skeleton */}
+        <div className="xl:col-span-1 space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="h-6 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex justify-between">
+                <div className="h-4 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                <div className="h-4 w-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+              </div>
+              <div className="flex justify-between">
+                <div className="h-4 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                <div className="h-4 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+              </div>
+              <div className="flex justify-between">
+                <div className="h-4 w-18 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                <div className="h-4 w-14 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="h-6 w-28 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-full"></div>
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-3/4"></div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 const announcementTypes = [
   { value: 'notification', label: 'Notification', icon: AlertCircle, description: 'General notifications and updates' },
@@ -136,16 +246,7 @@ export default function AnnouncementViewPage() {
   };
 
   if (loading) {
-    return (
-      <div className="container mx-auto px-4 py-6">
-        <div className="flex items-center justify-center py-12">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-            <p className="text-muted-foreground">Loading announcement...</p>
-          </div>
-        </div>
-      </div>
-    );
+    return <AnnouncementDetailSkeleton />;
   }
 
   if (!announcement) {
@@ -162,63 +263,92 @@ export default function AnnouncementViewPage() {
 
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => router.back()}
-          className="flex items-center gap-2"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back
-        </Button>
-        <div className="flex-1">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+      {/* Header with improved layout */}
+      <div className="flex items-start justify-between">
+        <div className="flex items-start gap-4 flex-1">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.back()}
+            className="flex items-center gap-2 mt-1"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back
+          </Button>
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-2">
               <h1 className="text-3xl font-bold tracking-tight">{announcement.title}</h1>
               {announcement.is_featured && (
                 <Star className="w-6 h-6 text-yellow-500 fill-current" />
               )}
+              {/* Status Badge - Moved to top right area */}
+              <div className="ml-auto">
+                <Badge className={`${getStatusColor(announcement.status)} px-3 py-1`}>
+                  {announcement.status.charAt(0).toUpperCase() + announcement.status.slice(1)}
+                </Badge>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              {getStatusIcon(announcement.status)}
-              <Badge className={getStatusColor(announcement.status)}>
-                {announcement.status.charAt(0).toUpperCase() + announcement.status.slice(1)}
-              </Badge>
+
+            {/* Target Audience - In one line */}
+            <div className="flex items-center gap-4 mt-2">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">To:</span>
+                <div className="flex flex-wrap gap-2">
+                  {/* Target Roles */}
+                  {announcement.target_roles.map((role) => (
+                    <Badge key={role} variant="outline" className="text-xs">
+                      {role.charAt(0).toUpperCase() + role.slice(1)}
+                    </Badge>
+                  ))}
+                  {/* Target Classes - Use names instead of IDs */}
+                  {announcement.target_class_names && announcement.target_class_names.length > 0 ? (
+                    announcement.target_class_names.map((className) => (
+                      <Badge key={className} variant="secondary" className="text-xs">
+                        {className}
+                      </Badge>
+                    ))
+                  ) : (
+                    announcement.target_classes.map((classId) => (
+                      <Badge key={classId} variant="secondary" className="text-xs">
+                        {classId}
+                      </Badge>
+                    ))
+                  )}
+                </div>
+              </div>
             </div>
           </div>
-          <p className="text-muted-foreground mt-1">
-            View announcement details and information
-          </p>
         </div>
 
+        {/* Action Buttons - Show for teachers who created the announcement or for admins */}
+        {(user?.role === 'teacher' && user.id === announcement.created_by) || (user?.role !== 'teacher') ? (
+          <div className="flex items-center gap-2 ml-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push(user?.role === 'teacher' ? `/announcements/${announcement.id}/edit` : `/admin/announcements/${announcement.id}/edit`)}
+              className="flex items-center gap-2"
+            >
+              <Edit className="w-4 h-4" />
+              Edit
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setShowDeleteModal(true)}
+              className="flex items-center gap-2"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete
+            </Button>
+          </div>
+        ) : null}
       </div>
 
-      {/* Action Buttons - Only show if user created this announcement */}
-      {user && announcement.created_by === user.id && (
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            onClick={() => router.push(`/announcements/${announcement.id}/edit`)}
-            className="flex items-center gap-2"
-          >
-            <Edit className="w-4 h-4" />
-            Edit
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={() => setShowDeleteModal(true)}
-            className="flex items-center gap-2"
-          >
-            <Trash2 className="w-4 h-4" />
-            Delete
-          </Button>
-        </div>
-      )}
 
       {/* Main Content Grid - Everything at one glance */}
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Content - Takes 2 columns */}
         <div className="xl:col-span-2 space-y-6">
           {/* Content Card */}
@@ -238,53 +368,10 @@ export default function AnnouncementViewPage() {
             </CardContent>
           </Card>
 
-          {/* Target Audience */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="w-5 h-5" />
-                Target Audience
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center gap-4">
-                  <span className="text-sm font-medium text-muted-foreground">Target Roles:</span>
-                  <div className="flex flex-wrap gap-2">
-                    {announcement.target_roles.map((role) => (
-                      <Badge key={role} variant="outline" className="px-3 py-1 capitalize">
-                        {role}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-                {announcement.target_classes.length > 0 && (
-                  <div className="flex items-center gap-4">
-                    <span className="text-sm font-medium text-muted-foreground">Target Classes:</span>
-                    <div className="flex flex-wrap gap-2">
-                      {announcement.target_class_names && announcement.target_class_names.length > 0 ? (
-                        announcement.target_class_names.map((className: string, index: number) => (
-                          <Badge key={index} variant="secondary" className="px-3 py-1">
-                            {className}
-                          </Badge>
-                        ))
-                      ) : (
-                        announcement.target_classes.map((classId) => (
-                          <Badge key={classId} variant="secondary" className="px-3 py-1">
-                            {classId}
-                          </Badge>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
-        {/* Right Sidebar - Takes 2 columns */}
-        <div className="xl:col-span-2 space-y-6">
+        {/* Right Sidebar - Takes 1 column */}
+        <div className="xl:col-span-1 space-y-6">
           {/* Key Information - Compact Overview */}
           <Card>
             <CardHeader>

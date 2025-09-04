@@ -14,6 +14,173 @@ import { useEffect, useState } from 'react';
 import type { LeaveRequest } from '@/types/leave-requests';
 import { formatDate } from '@/lib/utils';
 
+// Skeleton Loader Components
+const LeaveRequestDetailSkeleton = () => (
+  <div className="container mx-auto px-4 py-6 space-y-6">
+    {/* Header Skeleton */}
+    <div className="flex items-center justify-between">
+      <Button variant="outline" disabled className="flex items-center gap-2">
+        <div className="h-4 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+      </Button>
+      <div className="flex-1 text-center">
+        <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-64 mx-auto mb-2"></div>
+        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-48 mx-auto"></div>
+      </div>
+      <div className="flex gap-2">
+        <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-20"></div>
+        <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-20"></div>
+      </div>
+    </div>
+
+    {/* Main Content Grid */}
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Left Column - Main Content */}
+      <div className="lg:col-span-2 space-y-6">
+        {/* Leave Request Information Card */}
+        <Card>
+          <CardHeader>
+            <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-48"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-64"></div>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Student Name */}
+            <div className="space-y-2">
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-24"></div>
+              <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-32"></div>
+            </div>
+            {/* Class */}
+            <div className="space-y-2">
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-16"></div>
+              <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-40"></div>
+            </div>
+            {/* Start Date */}
+            <div className="space-y-2">
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-20"></div>
+              <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-28"></div>
+            </div>
+            {/* End Date */}
+            <div className="space-y-2">
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-16"></div>
+              <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-28"></div>
+            </div>
+            {/* Duration */}
+            <div className="space-y-2">
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-20"></div>
+              <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-24"></div>
+            </div>
+            {/* Status */}
+            <div className="space-y-2">
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-16"></div>
+              <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse w-20"></div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Reason Card */}
+        <Card>
+          <CardHeader>
+            <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-32"></div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-full"></div>
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-5/6"></div>
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-4/6"></div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Request Timeline Card */}
+        <Card>
+          <CardHeader>
+            <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-40"></div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {/* Timeline items */}
+              <div className="flex gap-4">
+                <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse"></div>
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-48"></div>
+                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-32"></div>
+                </div>
+              </div>
+              <div className="flex gap-4">
+                <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse"></div>
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-40"></div>
+                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-28"></div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Right Column - Sidebar */}
+      <div className="space-y-6">
+        {/* Student Information Card */}
+        <Card>
+          <CardHeader>
+            <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-40"></div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Student avatar and info */}
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse"></div>
+              <div className="space-y-2">
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-24"></div>
+                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-20"></div>
+              </div>
+            </div>
+
+            {/* Contact info */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-32"></div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-28"></div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Parent/Guardian Information Card */}
+        <Card>
+          <CardHeader>
+            <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-48"></div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Parent info */}
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse"></div>
+              <div className="space-y-2">
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-24"></div>
+                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-16"></div>
+              </div>
+            </div>
+
+            {/* Parent contact */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-32"></div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-28"></div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  </div>
+);
+
 // Simple status badge component with theme support
 const StatusBadge = ({ status }: { status: string }) => {
   const { colorScheme } = useTheme();
@@ -203,12 +370,7 @@ export default function LeaveRequestDetailsPage({ params }: { params: Promise<{ 
           </div>
 
           {/* Loading State */}
-          {loading && (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              <span className="ml-2 text-muted-foreground">Loading leave request...</span>
-            </div>
-          )}
+          {loading && <LeaveRequestDetailSkeleton />}
 
           {/* Error State */}
           {error && !loading && (

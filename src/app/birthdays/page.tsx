@@ -178,17 +178,6 @@ const BirthdayCard = ({
                   </span>
                 )}
               </div>
-              {isToday && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => onSendWish(birthday)}
-                  className="h-7 px-2 text-xs border-green-500 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20"
-                >
-                  <Send className="h-3 w-3 mr-1" />
-                  Wish
-                </Button>
-              )}
             </div>
           </div>
         </div>

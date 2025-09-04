@@ -14,6 +14,56 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth/context';
 import { createAnnouncementsAPI, type Announcement } from '@/lib/api/announcements';
 
+// Skeleton Loader Components
+const AnnouncementTableSkeleton = () => (
+  <Card>
+    <CardContent className="p-0">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-[300px]">Title</TableHead>
+            <TableHead>Creator</TableHead>
+            <TableHead>Type</TableHead>
+            <TableHead>Priority</TableHead>
+            <TableHead>Created</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {Array.from({ length: 5 }).map((_, index) => (
+            <TableRow key={index}>
+              <TableCell>
+                <div className="space-y-2">
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-3/4"></div>
+                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-1/2"></div>
+                </div>
+              </TableCell>
+              <TableCell>
+                <div className="space-y-1">
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-16"></div>
+                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-12"></div>
+                </div>
+              </TableCell>
+              <TableCell>
+                <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-16"></div>
+              </TableCell>
+              <TableCell>
+                <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-12"></div>
+              </TableCell>
+              <TableCell>
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-20"></div>
+              </TableCell>
+              <TableCell className="text-right">
+                <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-16"></div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </CardContent>
+  </Card>
+);
+
 
 const announcementTypes = [
   { value: 'notification', label: 'Notification', icon: AlertCircle },
@@ -43,7 +93,9 @@ export default function AdminAnnouncementsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
-  const [priorityFilter, setPriorityFilter] = useState<string>('all');
+  const [datePreset, setDatePreset] = useState<string>('this-month');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
 
 
   const { toast } = useToast();
@@ -52,11 +104,53 @@ export default function AdminAnnouncementsPage() {
 
   const api = token ? createAnnouncementsAPI(token) : null;
 
+  // Set date range based on preset
+  const setDateRange = (preset: string) => {
+    const now = new Date();
+    let start: Date;
+    let end: Date;
+
+    switch (preset) {
+      case 'this-month':
+        start = new Date(now.getFullYear(), now.getMonth(), 1);
+        end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+        break;
+      case 'next-month':
+        start = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        end = new Date(now.getFullYear(), now.getMonth() + 2, 0, 23, 59, 59);
+        break;
+      case 'last-month':
+        start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+        break;
+      case 'this-week':
+        const dayOfWeek = now.getDay();
+        start = new Date(now);
+        start.setDate(now.getDate() - dayOfWeek);
+        start.setHours(0, 0, 0, 0);
+        end = new Date(start);
+        end.setDate(start.getDate() + 6);
+        end.setHours(23, 59, 59, 999);
+        break;
+      default:
+        // Custom - don't change dates if already set
+        return;
+    }
+
+    setStartDate(start.toISOString().split('T')[0]); // YYYY-MM-DD format
+    setEndDate(end.toISOString().split('T')[0]); // YYYY-MM-DD format
+  };
+
   const fetchAnnouncements = useCallback(async () => {
     if (!api) return;
 
     try {
-      const response = await api.getAnnouncements();
+      const params: any = {};
+      if (startDate && endDate) {
+        params.start_date = startDate + 'T00:00:00Z';
+        params.end_date = endDate + 'T23:59:59Z';
+      }
+      const response = await api.getAnnouncements(params);
       if (response.status === 'success') {
         setAnnouncements(response.data.announcements);
       }
@@ -68,14 +162,19 @@ export default function AdminAnnouncementsPage() {
         variant: 'error',
       });
     }
-  }, [api, toast]);
+  }, [api, toast, startDate, endDate]);
 
   const fetchPendingAnnouncements = useCallback(async () => {
     if (!api) return;
 
     try {
       setLoading(true);
-      const response = await api.getAnnouncements({ status: 'pending' });
+      const params: any = { status: 'pending' };
+      if (startDate && endDate) {
+        params.start_date = startDate + 'T00:00:00Z';
+        params.end_date = endDate + 'T23:59:59Z';
+      }
+      const response = await api.getAnnouncements(params);
       if (response.status === 'success') {
         setPendingAnnouncements(response.data.announcements);
       }
@@ -89,14 +188,33 @@ export default function AdminAnnouncementsPage() {
     } finally {
       setLoading(false);
     }
-  }, [api, toast]);
+  }, [api, toast, startDate, endDate]);
 
   useEffect(() => {
     if (token) {
+      // Set default date range to this month
+      setDateRange('this-month');
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (token && startDate && endDate) {
       fetchAnnouncements();
+    }
+  }, [token, startDate, endDate]); // Trigger fetch when dates change
+
+  // Update dates when preset changes
+  useEffect(() => {
+    if (datePreset !== 'custom') {
+      setDateRange(datePreset);
+    }
+  }, [datePreset]);
+
+  useEffect(() => {
+    if (token) {
       fetchPendingAnnouncements();
     }
-  }, [token]); // Removed fetch functions from dependencies to prevent infinite loop
+  }, [token, startDate, endDate]); // Fetch pending announcements when dates change
 
   const handleApproveAnnouncement = async (announcementId: string) => {
     if (!api) return;
@@ -130,11 +248,9 @@ export default function AdminAnnouncementsPage() {
     const matchesSearch = announcement.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          announcement.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          announcement.creator.full_name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || announcement.status === statusFilter;
     const matchesType = typeFilter === 'all' || announcement.announcement_type === typeFilter;
-    const matchesPriority = priorityFilter === 'all' || announcement.priority === priorityFilter;
 
-    return matchesSearch && matchesStatus && matchesType && matchesPriority;
+    return matchesSearch && matchesType;
   });
 
   const formatDate = (dateString: string) => {
@@ -271,46 +387,65 @@ export default function AdminAnnouncementsPage() {
                   </div>
                 </div>
 
-                <div className="flex gap-2">
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-32">
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="approved">Approved</SelectItem>
-                      <SelectItem value="rejected">Rejected</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="flex flex-wrap gap-3 items-end">
+                  {/* Date Preset Selector */}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-medium text-muted-foreground">Date Range</label>
+                    <Select value={datePreset} onValueChange={setDatePreset}>
+                      <SelectTrigger className="w-36">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="this-month">This Month</SelectItem>
+                        <SelectItem value="next-month">Next Month</SelectItem>
+                        <SelectItem value="last-month">Last Month</SelectItem>
+                        <SelectItem value="this-week">This Week</SelectItem>
+                        <SelectItem value="custom">Custom Range</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                  <Select value={typeFilter} onValueChange={setTypeFilter}>
-                    <SelectTrigger className="w-32">
-                      <SelectValue placeholder="Type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Types</SelectItem>
-                      {announcementTypes.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {type.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {/* Custom Date Range - Only show when custom is selected */}
+                  {datePreset === 'custom' && (
+                    <>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs font-medium text-muted-foreground">From</label>
+                        <Input
+                          type="date"
+                          value={startDate}
+                          onChange={(e) => setStartDate(e.target.value)}
+                          className="w-32"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs font-medium text-muted-foreground">To</label>
+                        <Input
+                          type="date"
+                          value={endDate}
+                          onChange={(e) => setEndDate(e.target.value)}
+                          className="w-32"
+                        />
+                      </div>
+                    </>
+                  )}
 
-                  <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                    <SelectTrigger className="w-32">
-                      <SelectValue placeholder="Priority" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Priorities</SelectItem>
-                      {priorities.map((priority) => (
-                        <SelectItem key={priority.value} value={priority.value}>
-                          {priority.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {/* Type Filter */}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-medium text-muted-foreground">Type</label>
+                    <Select value={typeFilter} onValueChange={setTypeFilter}>
+                      <SelectTrigger className="w-32">
+                        <SelectValue placeholder="All Types" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Types</SelectItem>
+                        {announcementTypes.map((type) => (
+                          <SelectItem key={type.value} value={type.value}>
+                            {type.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -318,12 +453,7 @@ export default function AdminAnnouncementsPage() {
 
           {/* Announcements Table */}
           {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-                <p className="text-muted-foreground">Loading announcements...</p>
-              </div>
-            </div>
+            <AnnouncementTableSkeleton />
           ) : filteredAnnouncements.length === 0 ? (
             <Card>
               <CardContent className="p-12 text-center">
@@ -342,7 +472,6 @@ export default function AdminAnnouncementsPage() {
                     <TableRow>
                       <TableHead>Title</TableHead>
                       <TableHead>Creator</TableHead>
-                      <TableHead>Status</TableHead>
                       <TableHead>Type</TableHead>
                       <TableHead>Priority</TableHead>
                       <TableHead>Created</TableHead>
@@ -367,11 +496,6 @@ export default function AdminAnnouncementsPage() {
                               {announcement.creator.role}
                             </div>
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={statusConfig[announcement.status].color}>
-                            {statusConfig[announcement.status].label}
-                          </Badge>
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline">
@@ -438,19 +562,6 @@ export default function AdminAnnouncementsPage() {
                     </SelectContent>
                   </Select>
 
-                  <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                    <SelectTrigger className="w-32">
-                      <SelectValue placeholder="Priority" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Priorities</SelectItem>
-                      {priorities.map((priority) => (
-                        <SelectItem key={priority.value} value={priority.value}>
-                          {priority.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 </div>
               </div>
             </CardContent>
@@ -458,12 +569,7 @@ export default function AdminAnnouncementsPage() {
 
           {/* Pending Announcements Table */}
           {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-                <p className="text-muted-foreground">Loading pending announcements...</p>
-              </div>
-            </div>
+            <AnnouncementTableSkeleton />
           ) : pendingAnnouncements.length === 0 ? (
             <Card>
               <CardContent className="p-12 text-center">
@@ -495,8 +601,7 @@ export default function AdminAnnouncementsPage() {
                                              announcement.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
                                              announcement.creator.full_name.toLowerCase().includes(searchTerm.toLowerCase());
                         const matchesType = typeFilter === 'all' || announcement.announcement_type === typeFilter;
-                        const matchesPriority = priorityFilter === 'all' || announcement.priority === priorityFilter;
-                        return matchesSearch && matchesType && matchesPriority;
+                        return matchesSearch && matchesType;
                       })
                       .map((announcement) => (
                         <TableRow key={announcement.id} className="hover:bg-muted/50">
