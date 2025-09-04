@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Users } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth/context';
+import { useTeacher } from '@/lib/auth/teacher-context';
 import { academicServices } from '@/lib/api';
 
 interface TeacherClass {
@@ -22,49 +23,43 @@ interface TeacherClass {
 }
 
 export function ClassOverviewCard() {
-  const { token } = useAuth();
+  const { user } = useAuth();
+  const { teacherData, loading: teacherLoading } = useTeacher();
   const [classes, setClasses] = useState<TeacherClass[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchTeacherClasses = async () => {
-      if (!token) return;
+    if (teacherData && teacherData.assigned_classes) {
+      // Transform the teacher data to match our interface
+      const transformedClasses = teacherData.assigned_classes.map((assignment) => {
+        // Extract class name from class_level
+        const className = assignment.class_level || 'Unknown Class';
+        const division = assignment.division || 'Unknown Division';
 
-      try {
-        setLoading(true);
-        const response = await academicServices.getMyTeacherInfo(token);
+        return {
+          id: `${assignment.assignment_id}-${assignment.class_division_id}`,
+          name: className,
+          division: division,
+          studentCount: assignment.student_count || 0, // Use actual student count from API
+          teacherRole: assignment.assignment_type === 'class_teacher' ? 'class_teacher' : 'subject_teacher' as 'class_teacher' | 'subject_teacher',
+          subject: assignment.subject || undefined,
+          classDivisionId: assignment.class_division_id,
+          assignmentId: assignment.assignment_id
+        };
+      });
 
-        if (response.status === 'success' && response.data.assigned_classes) {
-          // Transform the API data to match our interface
-          // No need for sequential API calls - student counts are already included!
-          const transformedClasses = response.data.assigned_classes.map((assignment) => {
-            // Extract class name from class_level
-            const className = assignment.class_level || 'Unknown Class';
-            const division = assignment.division || 'Unknown Division';
+      setClasses(transformedClasses);
+      setLoading(false);
+    } else if (!teacherLoading) {
+      // If no teacher data and not loading, set loading to false
+      setLoading(false);
+    }
+  }, [teacherData, teacherLoading]);
 
-            return {
-              id: `${assignment.assignment_id}-${assignment.class_division_id}`,
-              name: className,
-              division: division,
-              studentCount: assignment.student_count, // Use the student count from the API response
-              teacherRole: assignment.assignment_type === 'class_teacher' ? 'class_teacher' : 'subject_teacher' as 'class_teacher' | 'subject_teacher',
-              subject: assignment.subject || undefined,
-              classDivisionId: assignment.class_division_id,
-              assignmentId: assignment.assignment_id
-            };
-          });
-
-          setClasses(transformedClasses);
-        }
-      } catch (error) {
-        console.error('Error fetching teacher classes:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchTeacherClasses();
-  }, [token]);
+  // Only show for teachers
+  if (user?.role !== 'teacher') {
+    return null;
+  }
 
   // Separate classes by role
   const classTeacherClasses = classes.filter(cls => cls.teacherRole === 'class_teacher');

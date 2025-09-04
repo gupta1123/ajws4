@@ -8,45 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth/context';
-import { Attachment } from '@/types/homework';
+import { Attachment, Announcement } from '@/lib/api/announcements';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
-interface Announcement {
-  id: string;
-  title: string;
-  content: string;
-  announcement_type: string;
-  status: 'pending' | 'approved' | 'rejected';
-  priority: 'low' | 'medium' | 'high';
-  created_by: string;
-  approved_by?: string;
-  approved_at?: string;
-  rejected_by?: string;
-  rejected_at?: string;
-  rejection_reason?: string;
-  target_roles: string[];
-  target_classes: string[];
-  target_departments: string[];
-  publish_at: string;
-  expires_at: string;
-  is_published: boolean;
-  is_featured: boolean;
-  view_count: number;
-  created_at: string;
-  updated_at: string;
-  creator: {
-    id: string;
-    role: string;
-    full_name: string;
-  };
-  approver?: {
-    id: string;
-    role: string;
-    full_name: string;
-  };
-  attachments: Attachment[];
-}
 
 const announcementTypes = [
   { value: 'notification', label: 'Notification', icon: AlertCircle, description: 'General notifications and updates' },
@@ -105,7 +70,7 @@ export default function AnnouncementViewPage() {
       }
     };
     fetchData();
-  }, [params.id]); // Removed fetchAnnouncement from dependencies to prevent infinite loop
+  }, [params.id, fetchAnnouncement]);
 
   const handleDeleteAnnouncement = async (id: string) => {
     try {
@@ -297,8 +262,8 @@ export default function AnnouncementViewPage() {
                   <div className="flex items-center gap-4">
                     <span className="text-sm font-medium text-muted-foreground">Target Classes:</span>
                     <div className="flex flex-wrap gap-2">
-                      {(announcement as any).target_class_names && (announcement as any).target_class_names.length > 0 ? (
-                        (announcement as any).target_class_names.map((className: string, index: number) => (
+                      {announcement.target_class_names && announcement.target_class_names.length > 0 ? (
+                        announcement.target_class_names.map((className: string, index: number) => (
                           <Badge key={index} variant="secondary" className="px-3 py-1">
                             {className}
                           </Badge>

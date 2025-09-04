@@ -3,6 +3,7 @@
 'use client';
 
 import { useAuth } from '@/lib/auth/context';
+import { useTeacher } from '@/lib/auth/teacher-context';
 import { ProtectedRoute } from '@/lib/auth/protected-route';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -47,6 +48,7 @@ interface AssignedClass {
 
 export default function CreateHomeworkPage() {
   const { user, token, isAuthenticated, loading: authLoading } = useAuth();
+  const { teacherData, loading: teacherLoading } = useTeacher();
   const router = useRouter();
   const [formData, setFormData] = useState({
     class_division_id: '',
@@ -74,30 +76,32 @@ export default function CreateHomeworkPage() {
           return;
         }
         
-        const response = await academicServices.getMyTeacherInfo(token);
-        if (response.status === 'success' && response.data) {
-          // Use subjects_taught directly from the new API (already filtered and unique)
-          setAvailableSubjects(response.data.subjects_taught);
+      // Use teacher data from context
+      if (teacherData) {
+        // Use subjects_taught directly from the teacher context (already filtered and unique)
+        setAvailableSubjects(teacherData.subjects_taught || []);
 
-          // Transform the secondary classes to match the expected format
-          const transformedClasses = response.data.secondary_classes.map(assignedClass => ({
-            id: assignedClass.class_division_id,
-            division: assignedClass.division,
-            class_level: {
-              name: assignedClass.class_level
-            },
-            academic_year: {
-              year_name: assignedClass.academic_year
-            }
-          }));
-          
-          // Filter out duplicates based on ID to prevent React key conflicts
-          const uniqueClasses = transformedClasses.filter((classItem, index, self) => 
-            index === self.findIndex(c => c.id === classItem.id)
-          );
-          
-          setClassDivisions(uniqueClasses);
-        }
+        // Transform the secondary classes to match the expected format
+        const transformedClasses = (teacherData.secondary_classes || []).map(assignedClass => ({
+          id: assignedClass.class_division_id,
+          division: assignedClass.division,
+          class_level: {
+            name: assignedClass.class_level
+          },
+          academic_year: {
+            year_name: assignedClass.academic_year
+          }
+        }));
+
+        // Filter out duplicates based on ID to prevent React key conflicts
+        const uniqueClasses = transformedClasses.filter((classItem, index, self) =>
+          index === self.findIndex(c => c.id === classItem.id)
+        );
+
+        setClassDivisions(uniqueClasses);
+        console.log('Available subjects from context:', teacherData.subjects_taught);
+        console.log('Available classes from context:', uniqueClasses);
+      }
       } catch (error) {
         console.error('Error fetching teacher classes:', error);
         toast({
@@ -110,12 +114,7 @@ export default function CreateHomeworkPage() {
       }
     };
 
-    if (token) {
-      fetchClassDivisions();
-    } else {
-      console.log('No token available, skipping API call');
-    }
-  }, [token]);
+  }, [teacherData]);
 
   // Debug: Log authentication state
   console.log('Auth state:', { user, token: !!token, isAuthenticated, authLoading });

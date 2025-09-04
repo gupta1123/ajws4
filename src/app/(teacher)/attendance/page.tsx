@@ -3,6 +3,7 @@
 'use client';
 
 import { useAuth } from '@/lib/auth/context';
+import { useTeacher } from '@/lib/auth/teacher-context';
 import { ProtectedRoute } from '@/lib/auth/protected-route';
 import { academicServices } from '@/lib/api/academic';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,7 +34,8 @@ interface ClassData {
 }
 
 export default function AttendancePage() {
-  const { user, token } = useAuth();
+  const { user } = useAuth();
+  const { teacherData, loading: teacherLoading, refreshTeacherData } = useTeacher();
   const router = useRouter();
   const [selectedClass, setSelectedClass] = useState<string>('');
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -41,47 +43,30 @@ export default function AttendancePage() {
   const [classes, setClasses] = useState<ClassData[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const loadTeacherData = useCallback(async () => {
-    if (!token) return;
-
-    try {
-      setLoading(true);
-
-      // Get teacher complete information including primary classes with student counts
-      const teacherInfoResponse = await academicServices.getMyTeacherInfo(token);
-
-      // Handle Blob response (shouldn't happen for this endpoint)
-      if (teacherInfoResponse instanceof Blob) {
-        console.error('Unexpected Blob response');
-        return;
-      }
-
-      if (teacherInfoResponse && teacherInfoResponse.status === 'success') {
-        const teacherData = teacherInfoResponse.data;
-
-        // Use primary classes directly from the new API (already filtered and includes student counts)
-        const classList: ClassData[] = teacherData.primary_classes.map(cls => ({
-          id: cls.class_division_id,
-          name: cls.class_level, // e.g., "Grade 1"
-          division: cls.division, // e.g., "B"
-          studentCount: cls.student_count
-        }));
-
-        setClasses(classList);
-      }
-    } catch (error) {
-      console.error('Failed to load teacher data:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [token]);
-
-  // Load teacher's classes and summary data
+  // Transform teacher data to class list using utility function
   useEffect(() => {
-    if (token && user?.role === 'teacher') {
-      loadTeacherData();
+    if (teacherData) {
+      // Use the utility function to get primary classes (now uses API's primary_classes array)
+      const primaryClasses = teacherData.primary_classes || teacherData.assigned_classes.filter(
+        assignment => assignment.assignment_type === 'class_teacher' || assignment.is_primary
+      );
+
+      // Transform to ClassData format
+      const classList: ClassData[] = primaryClasses.map(cls => ({
+        id: cls.class_division_id,
+        name: cls.class_level, // e.g., "Grade 1"
+        division: cls.division, // e.g., "B"
+        studentCount: cls.student_count || 0 // Use actual student count from API
+      }));
+
+      setClasses(classList);
     }
-  }, [token, user, loadTeacherData]);
+  }, [teacherData]);
+
+  // Set loading based on teacher context
+  useEffect(() => {
+    setLoading(teacherLoading);
+  }, [teacherLoading]);
 
   // Only allow teachers to access this page
   if (user?.role !== 'teacher') {
@@ -101,8 +86,12 @@ export default function AttendancePage() {
     }
   };
 
-  const handleRefresh = () => {
-    loadTeacherData();
+  const handleRefresh = async () => {
+    try {
+      await refreshTeacherData();
+    } catch (error) {
+      console.error('Failed to refresh teacher data:', error);
+    }
   };
 
   // Filter classes based on search term

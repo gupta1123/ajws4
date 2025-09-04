@@ -3,6 +3,7 @@
 'use client';
 
 import { useAuth } from '@/lib/auth/context';
+import { useTeacher } from '@/lib/auth/teacher-context';
 import { ProtectedRoute } from '@/lib/auth/protected-route';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -52,6 +53,7 @@ interface TeacherAssignment {
 
 export default function HomeworkPage() {
   const { user, token, isAuthenticated, loading: authLoading } = useAuth();
+  const { teacherData, loading: teacherLoading } = useTeacher();
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('all');
@@ -62,37 +64,14 @@ export default function HomeworkPage() {
   const [teacherSubjects, setTeacherSubjects] = useState<string[]>([]);
   const [teacherClasses, setTeacherClasses] = useState<string[]>([]);
 
-  // Fetch teacher assignments and homework data from API
+  // Fetch homework data from API (teacher data comes from context)
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      
+
       if (!token) {
         console.log('No token available, skipping API call');
         return;
-      }
-    
-    
-              const teacherResponse = await academicServices.getMyTeacherInfo(token);
-        if (teacherResponse.status === 'success' && teacherResponse.data) {
-          // Use subjects_taught directly from the new API (already filtered and unique)
-          setTeacherSubjects(teacherResponse.data.subjects_taught);
-
-          // Extract unique classes from secondary classes (subject teacher assignments)
-          const classes = Array.from(new Set(
-            teacherResponse.data.secondary_classes
-              .map((assignment) => `${assignment.class_level} - Section ${assignment.division}`)
-          ));
-          setTeacherClasses(classes);
-
-        console.log('Teacher assignments:', teacherResponse.data);
-        console.log('Teacher subjects:', teacherResponse.data.subjects_taught);
-        console.log('Teacher classes:', teacherResponse.data.secondary_classes.map(cls => `${cls.class_level} - Section ${cls.division}`));
-      } else {
-        console.log('No teacher assignments found or API error:', teacherResponse);
-        // Set empty arrays as fallback
-        setTeacherSubjects([]);
-        setTeacherClasses([]);
       }
       
       // Fetch homework data
@@ -127,7 +106,27 @@ export default function HomeworkPage() {
     }
   }, [token]);
 
+  // Populate teacher data from context
+  useEffect(() => {
+    if (teacherData) {
+      // Use subjects_taught directly from the teacher context (already filtered and unique)
+      const subjects = teacherData.subjects_taught || [];
 
+      // Extract unique classes from secondary classes (subject teacher assignments)
+      const classes = Array.from(new Set(
+        (teacherData.secondary_classes || [])
+          .map((assignment) => `${assignment.class_level} - Section ${assignment.division}`)
+      ));
+
+      console.log('Teacher data from context:', teacherData);
+      console.log('Teacher subjects:', subjects);
+      console.log('Teacher classes:', classes);
+
+      // Store in component state for use in filtering
+      setTeacherSubjects(subjects);
+      setTeacherClasses(classes);
+    }
+  }, [teacherData]);
 
   // Fetch data on component mount
   useEffect(() => {

@@ -3,6 +3,7 @@
 'use client';
 
 import { useAuth } from '@/lib/auth/context';
+import { useTeacher } from '@/lib/auth/teacher-context';
 import { ProtectedRoute } from '@/lib/auth/protected-route';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,59 +29,43 @@ interface TeacherClass {
 }
 
 export default function ClassesPage() {
-  const { user, token } = useAuth();
+  const { user } = useAuth();
+  const { teacherData, loading: teacherLoading, error: teacherError } = useTeacher();
   const [classes, setClasses] = useState<TeacherClass[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('name');
 
   useEffect(() => {
-    const fetchTeacherClasses = async () => {
-      if (!token || !user) return;
+    if (teacherData && teacherData.assigned_classes) {
+      // Transform the teacher data to match our interface
+      const transformedClasses: TeacherClass[] = teacherData.assigned_classes.map((assignment) => {
+        // Extract division from class_name (e.g., "Grade 1 B" -> "B")
+        const division = assignment.division;
 
-      try {
-        setLoading(true);
-        
-        // Get teacher's complete information including assigned classes and student counts
-        const response = await academicServices.getMyTeacherInfo(token);
+        // Extract grade name from class_name (e.g., "Grade 1 B" -> "Grade 1")
+        const name = assignment.class_level;
 
-        if (response.status === 'success' && response.data.assigned_classes) {
-          // Transform the API data to match our interface
-          // No need for sequential API calls - student counts are already included!
-          const transformedClasses: TeacherClass[] = response.data.assigned_classes.map((assignment) => {
-              // Extract division from class_name (e.g., "Grade 1 B" -> "B")
-              const division = assignment.division;
+        return {
+          id: `${assignment.assignment_id}-${assignment.class_division_id}`, // Unique ID combining assignment and class
+          name: name,
+          division: division,
+          studentCount: assignment.student_count || 0, // Use actual student count from API
+          teacherRole: assignment.assignment_type === 'class_teacher' ? 'class_teacher' : 'subject_teacher',
+          subject: assignment.subject || undefined,
+          classDivisionId: assignment.class_division_id,
+          assignmentId: assignment.assignment_id
+        };
+      });
 
-              // Extract grade name from class_name (e.g., "Grade 1 B" -> "Grade 1")
-              const name = assignment.class_level;
-
-              return {
-                id: `${assignment.assignment_id}-${assignment.class_division_id}`, // Unique ID combining assignment and class
-                name: name,
-                division: division,
-                studentCount: assignment.student_count, // Use the student count from the API response
-                teacherRole: assignment.assignment_type === 'class_teacher' ? 'class_teacher' : 'subject_teacher',
-                subject: assignment.subject || undefined,
-                classDivisionId: assignment.class_division_id,
-                assignmentId: assignment.assignment_id
-              };
-            });
-
-          // Show all assignments - no deduplication needed
-          // Each assignment represents a different role or subject for the teacher
-          const uniqueClasses = transformedClasses;
-
-          setClasses(uniqueClasses);
-        }
-      } catch (error) {
-        console.error('Error fetching teacher classes:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchTeacherClasses();
-  }, [token, user]);
+      // Show all assignments - each represents a different role or subject for the teacher
+      setClasses(transformedClasses);
+      setLoading(false);
+    } else if (!teacherLoading) {
+      // If no teacher data and not loading, set loading to false
+      setLoading(false);
+    }
+  }, [teacherData, teacherLoading]);
 
   // Only allow teachers to access this page
   if (user?.role !== 'teacher') {

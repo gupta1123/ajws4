@@ -5,6 +5,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, AuthState, RegisterUserData } from '@/types/auth';
 import { authServices } from './api';
+import { fetchTeacherData } from './teacher-context';
 
 // Interface for message data
 interface MessageData {
@@ -69,10 +70,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(user);
         setToken(token);
         setIsAuthenticated(true);
-        
+
         // Store in localStorage
         localStorage.setItem('token', token);
         localStorage.setItem('user', JSON.stringify(user));
+
+        // Fetch teacher data if user is a teacher
+        if (user.role === 'teacher') {
+          try {
+            await fetchTeacherData(token);
+          } catch (teacherErr) {
+            console.warn('Failed to fetch teacher data during login:', teacherErr);
+            // Don't fail login if teacher data fetch fails
+          }
+        }
       }
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Login failed';
@@ -103,11 +114,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setToken(null);
     setIsAuthenticated(false);
-    
+
     // Clear localStorage
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    
+
+    // Clear teacher data from localStorage (imported function will handle state clearing)
+    localStorage.removeItem('teacherData');
+
     // Redirect to login page
     if (typeof window !== 'undefined') {
       window.location.href = '/login';

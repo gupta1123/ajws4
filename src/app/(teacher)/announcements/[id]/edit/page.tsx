@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth/context';
+import { Attachment, Announcement } from '@/lib/api/announcements';
 
 
 
@@ -34,48 +35,6 @@ const targetRoles = [
   { value: 'admin', label: 'Administrators' },
 ];
 
-// Import the Announcement interface from the view page for consistency
-interface Announcement {
-  id: string;
-  title: string;
-  content: string;
-  announcement_type: string;
-  status: 'pending' | 'approved' | 'rejected';
-  priority: 'low' | 'medium' | 'high';
-  created_by: string;
-  approved_by?: string;
-  approved_at?: string;
-  rejected_by?: string;
-  rejected_at?: string;
-  rejection_reason?: string;
-  target_roles: string[];
-  target_classes: string[];
-  target_departments: string[];
-  publish_at: string;
-  expires_at: string;
-  is_published: boolean;
-  is_featured: boolean;
-  view_count: number;
-  created_at: string;
-  updated_at: string;
-  target_subjects?: string[];
-  target_class_names?: string[];
-  target_classes_detailed?: Array<{
-    id: string;
-    name: string;
-  }>;
-  creator: {
-    id: string;
-    role: string;
-    full_name: string;
-  };
-  approver?: {
-    id: string;
-    role: string;
-    full_name: string;
-  };
-  attachments: any[];
-}
 
 export default function EditAnnouncementPage() {
   const params = useParams();

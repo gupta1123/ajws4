@@ -1,6 +1,7 @@
 'use client';
 
 import { useAuth } from '@/lib/auth/context';
+import { useTeacher } from '@/lib/auth/teacher-context';
 import { ProtectedRoute } from '@/lib/auth/protected-route';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -78,6 +79,7 @@ type PageProps = { params: Promise<{ id: string }> };
 export default function EditHomeworkPage({ params }: PageProps) {
   const unwrappedParams = use(params);
   const { user, token } = useAuth();
+  const { teacherData, loading: teacherLoading } = useTeacher();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -352,15 +354,12 @@ export default function EditHomeworkPage({ params }: PageProps) {
         setLoading(true);
         setError(null);
 
-        // Fetch class divisions using the new comprehensive API
-        const teacherResponse = await academicServices.getMyTeacherInfo(token);
-        if ((teacherResponse as TeacherClassesApiResponse)?.status === 'success' && (teacherResponse as TeacherClassesApiResponse)?.data) {
-          // Filter for subject teacher assignments from assigned_classes
-          const subjectTeacherClasses = (teacherResponse as TeacherClassesApiResponse).data?.assigned_classes?.filter(
-            (assignment: AssignedClass) => assignment.assignment_type === 'subject_teacher'
-          ) ?? [];
+        // Use teacher data from context
+        if (teacherData && teacherData.secondary_classes) {
+          // Filter for subject teacher assignments from secondary_classes
+          const subjectTeacherClasses = teacherData.secondary_classes;
 
-          const transformedClasses: TransformedClass[] = subjectTeacherClasses.map((assignment: AssignedClass) => ({
+          const transformedClasses: TransformedClass[] = subjectTeacherClasses.map((assignment) => ({
             id: assignment.class_division_id,
             division: assignment.division,
             class_level: { name: assignment.class_level },
@@ -428,7 +427,7 @@ export default function EditHomeworkPage({ params }: PageProps) {
     if (homework?.id && token && !loading) {
       fetchExistingAttachmentsById(homework.id);
     }
-  }, [homework?.id, token, loading]); // Removed fetchExistingAttachmentsById to prevent infinite loop
+  }, [homework?.id, token, loading, fetchExistingAttachmentsById]);
 
   // Refresh attachments when page regains focus
   useEffect(() => {
@@ -439,7 +438,7 @@ export default function EditHomeworkPage({ params }: PageProps) {
     };
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
-  }, [token, homework?.id]); // Removed fetchExistingAttachmentsById to prevent infinite loop
+  }, [token, homework?.id, fetchExistingAttachmentsById]);
 
   // Cleanup function for blob URLs
   const cleanupBlobUrls = useCallback(() => {
@@ -449,7 +448,7 @@ export default function EditHomeworkPage({ params }: PageProps) {
       }
     });
     setImageBlobUrls({});
-  }, []); // Removed imageBlobUrls dependency to prevent infinite loop
+  }, [imageBlobUrls]);
 
   // Cleanup on unmount
   useEffect(() => {
