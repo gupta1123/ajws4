@@ -218,17 +218,17 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () =>
   return (
     <>
    
-      <div className="hidden md:block w-64 border-r bg-background fixed h-screen top-0 left-0 z-30">
+      <div className="hidden md:block w-64 border-r bg-sidebar border-sidebar-border fixed h-screen top-0 left-0 z-30">
         <div className="flex h-full flex-col">
           {/* Product Branding Header */}
-          <div className="flex h-16 items-center px-6 border-b bg-gradient-to-r from-primary/10 to-primary/5">
+          <div className="flex h-16 items-center px-6 border-b border-sidebar-border bg-sidebar-accent">
             <Link href="/dashboard" className="flex items-center gap-3 group">
-              <div className="bg-primary rounded-xl w-9 h-9 flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300">
-                <BookOpen className="h-5 w-5 text-primary-foreground" />
+              <div className="bg-sidebar-primary rounded-xl w-9 h-9 flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300">
+                <BookOpen className="h-5 w-5 text-sidebar-primary-foreground" />
               </div>
               <div className="flex flex-col">
-                <span className="font-bold text-lg text-primary group-hover:text-primary/80 transition-colors">AJWS</span>
-                <span className="text-xs text-muted-foreground font-medium">School Management</span>
+                <span className="font-bold text-lg text-sidebar-primary group-hover:text-sidebar-primary/80 transition-colors">AJWS</span>
+                <span className="text-xs text-sidebar-foreground/70 font-medium">School Management</span>
               </div>
             </Link>
           </div>
@@ -236,7 +236,7 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () =>
             <nav className="space-y-1 px-2">
               {navConfig.map((category) => (
                 <div key={category.category} className="mb-2">
-                  <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-3 py-2">
+                  <h3 className="text-xs font-semibold text-sidebar-foreground/70 uppercase tracking-wider px-3 py-2">
                     {category.category}
                   </h3>
                   <div className="space-y-1">
@@ -251,8 +251,8 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () =>
                           key={item.href}
                           href={item.href}
                           className={cn(
-                            'flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-50 dark:hover:bg-gray-800',
-                            pathname === item.href && 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-50'
+                            'flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground transition-all hover:text-sidebar-foreground hover:bg-sidebar-accent',
+                            pathname === item.href && 'bg-sidebar-accent text-sidebar-primary'
                           )}
                         >
                           <Icon className="h-4 w-4" />
@@ -268,15 +268,20 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () =>
           <div className="p-4 border-t">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <div className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-50 dark:hover:bg-gray-800 cursor-pointer">
-                  <div className="bg-muted rounded-full w-8 h-8 flex items-center justify-center">
-                    <User className="h-4 w-4" />
+                <div className="flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground transition-all hover:text-sidebar-foreground hover:bg-sidebar-accent cursor-pointer">
+                  <div className="bg-sidebar-primary rounded-full w-10 h-10 flex items-center justify-center shadow-sm">
+                    <User className="h-5 w-5 text-sidebar-primary-foreground" />
                   </div>
-                  <div className="flex flex-col items-start">
-                    <div className="text-sm font-medium truncate max-w-[120px]">{user?.full_name}</div>
-                    <div className="text-xs text-muted-foreground capitalize truncate max-w-[120px]">
+                  <div className="flex flex-col items-start flex-1 min-w-0">
+                    <div className="text-sm font-semibold truncate">{user?.full_name}</div>
+                    <div className="text-xs text-sidebar-foreground/70 capitalize truncate">
                       {user?.role}
                     </div>
+                  </div>
+                  <div className="text-sidebar-foreground/60">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
                   </div>
                 </div>
               </DropdownMenuTrigger>
@@ -314,7 +319,7 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () =>
 
       {/* Mobile Sidebar */}
       <div className={cn(
-        "md:hidden fixed inset-y-0 left-0 z-40 w-64 bg-background border-r transform transition-transform duration-300 ease-in-out",
+        "md:hidden fixed inset-y-0 left-0 z-40 w-64 bg-sidebar border-r border-sidebar-border transform transition-transform duration-300 ease-in-out",
         isOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         <div className="flex h-full flex-col">

@@ -495,37 +495,6 @@ export default function TimetablePage() {
 
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">
-      {/* Page Header */}
-      <Card className="border-0 shadow-none bg-gradient-to-r from-primary/10 to-primary/5">
-        <CardContent className="p-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <Calendar className="h-6 w-6 text-primary" />
-                </div>
-                <h1 className="text-3xl font-bold">Timetable Management</h1>
-              </div>
-              <p className="text-muted-foreground">
-                Create and manage school timetables for all classes
-              </p>
-            </div>
-
-            <div className="flex gap-2">
-              <Button
-                onClick={loadInitialData}
-                disabled={loading}
-                variant="outline"
-                className="flex items-center gap-2"
-              >
-                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Main Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-2">

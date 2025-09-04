@@ -6,9 +6,10 @@ import { useTheme } from '@/lib/theme/context';
 import { ProtectedRoute } from '@/lib/auth/protected-route';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Cake, Send, Calendar, Users, Gift, AlertTriangle, User, GraduationCap, Briefcase, X, Loader2 } from 'lucide-react';
+import { Cake, Send, Calendar, Users, Gift, AlertTriangle, User, GraduationCap, Briefcase, X } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { useBirthdays, BirthdayData } from '@/hooks/use-birthdays';
+import { Skeleton } from '@/components/ui/skeleton';
 
 // Modern, compact Birthday card component
 const BirthdayCard = ({ 
@@ -259,6 +260,120 @@ const FilterTag = ({
   );
 };
 
+// Statistics card skeleton
+const StatsCardSkeleton = () => (
+  <Card className="hover:shadow-md transition-shadow">
+    <CardContent className="p-4">
+      <div className="flex items-center gap-3">
+        <Skeleton className="h-10 w-10 rounded-lg" />
+        <div>
+          <Skeleton className="h-4 w-16 mb-1" />
+          <Skeleton className="h-6 w-8 mb-1" />
+          <Skeleton className="h-3 w-24" />
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+);
+
+// Birthday card skeleton
+const BirthdayCardSkeleton = () => (
+  <Card className="rounded-lg border hover:shadow-md transition-all duration-200">
+    <CardContent className="p-4">
+      <div className="flex items-start gap-3">
+        {/* Avatar skeleton */}
+        <div className="flex-shrink-0 relative">
+          <Skeleton className="w-12 h-12 rounded-lg" />
+          {/* Gift indicator skeleton */}
+          <Skeleton className="absolute -top-1 -right-1 w-5 h-5 rounded-full" />
+        </div>
+
+        {/* Content skeleton */}
+        <div className="flex-grow min-w-0">
+          <div className="flex justify-between items-start mb-3">
+            <Skeleton className="h-5 w-24" />
+            <Skeleton className="h-4 w-12" />
+          </div>
+
+          {/* Badges skeleton */}
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            <Skeleton className="h-6 w-16 rounded" />
+            <Skeleton className="h-6 w-20 rounded" />
+            <Skeleton className="h-6 w-18 rounded" />
+          </div>
+
+          {/* Days until skeleton */}
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-4 w-20" />
+          </div>
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+);
+
+// Filter buttons skeleton
+const FilterButtonsSkeleton = () => (
+  <div className="space-y-4 mb-6">
+    {/* Type Filter */}
+    <div className="flex flex-wrap items-center gap-3">
+      <Skeleton className="h-4 w-12" />
+      <div className="flex flex-wrap gap-2">
+        <Skeleton className="h-8 w-20" />
+        <Skeleton className="h-8 w-16" />
+      </div>
+    </div>
+
+    {/* Date Filter */}
+    <div className="flex flex-wrap items-center gap-3">
+      <Skeleton className="h-4 w-12" />
+      <div className="flex flex-wrap gap-2">
+        <Skeleton className="h-8 w-16" />
+        <Skeleton className="h-8 w-20" />
+        <Skeleton className="h-8 w-20" />
+        <Skeleton className="h-8 w-24" />
+      </div>
+    </div>
+  </div>
+);
+
+// Main birthdays skeleton
+const BirthdaysSkeleton = () => (
+  <div className="space-y-6">
+    {/* Statistics Cards Skeleton */}
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <StatsCardSkeleton />
+      <StatsCardSkeleton />
+      <StatsCardSkeleton />
+      <StatsCardSkeleton />
+    </div>
+
+    <div className="grid gap-6">
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle>
+            <Skeleton className="h-6 w-40" />
+          </CardTitle>
+          <CardDescription>
+            <Skeleton className="h-4 w-48" />
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {/* Filter buttons skeleton */}
+          <FilterButtonsSkeleton />
+
+          {/* Birthday Cards Grid Skeleton */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <BirthdayCardSkeleton key={index} />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  </div>
+);
+
 export default function BirthdaysPage() {
   const [dateFilter, setDateFilter] = useState<'today' | 'tomorrow' | 'this-week' | 'this-month' | null>('today');
   const [typeFilter, setTypeFilter] = useState<'all' | 'student' | 'staff' | null>(null);
@@ -481,10 +596,7 @@ export default function BirthdaysPage() {
               
               {/* Loading State */}
               {loading && (
-                <div className="text-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">Loading birthdays...</p>
-                </div>
+                <BirthdaysSkeleton />
               )}
               
               {/* Birthday Cards Grid - More compact for 30-40 cards */}

@@ -17,6 +17,13 @@ export interface UICalendarEvent {
   approved?: boolean;
   category: string;
   status?: 'pending' | 'approved' | 'rejected';
+  creator?: {
+    id: string;
+    role: string;
+    full_name: string;
+  };
+  class_division_name?: string;
+  event_type?: 'school_wide' | 'class_specific' | 'teacher_specific';
 }
 
 // Convert API CalendarEvent to UI format
@@ -77,11 +84,14 @@ export const convertApiEventToUI = (apiEvent: CalendarEvent): UICalendarEvent =>
     endTime,
     type,
     class: classInfo || undefined,
-    teacher: apiEvent.creator_name || undefined,
+    teacher: apiEvent.creator?.full_name || apiEvent.creator_name || undefined,
     requiresApproval,
     approved,
     category: apiEvent.event_category,
-    status: apiEvent.status
+    status: apiEvent.status,
+    creator: apiEvent.creator,
+    class_division_name: apiEvent.class_division_name,
+    event_type: apiEvent.event_type
   };
 };
 

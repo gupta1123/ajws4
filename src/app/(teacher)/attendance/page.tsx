@@ -106,9 +106,8 @@ export default function AttendancePage() {
   return (
     <ProtectedRoute>
       <div className="space-y-6">
-        {/* Header with refresh button */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Attendance Management</h1>
+        {/* Refresh button moved to topbar area */}
+        <div className="mb-6 flex justify-end">
           <Button
             variant="outline"
             onClick={handleRefresh}

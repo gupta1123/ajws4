@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/sheet';
 
 export function ThemeSwitcher() {
-  const { theme, colorScheme, toggleTheme, setColorScheme } = useTheme();
+  const { theme, colorScheme, toggleTheme, setTheme, setColorScheme } = useTheme();
 
   const colorSchemes = [
     { id: 'default', name: 'Default (Indigo)' },
@@ -28,6 +28,21 @@ export function ThemeSwitcher() {
     { id: 'purple', name: 'Purple' },
     { id: 'orange', name: 'Orange' },
   ];
+
+  const themes = [
+    { id: 'light', name: 'Light Mode', icon: Sun, description: 'Bright and vibrant interface' },
+    { id: 'dark', name: 'Dark Mode', icon: Moon, description: 'Reduce eye strain in low light' },
+    { id: 'beige', name: 'Beige Mode', icon: Palette, description: 'Warm and professional look' },
+  ];
+
+  const getCurrentThemeIcon = () => {
+    const currentTheme = themes.find(t => t.id === theme);
+    if (currentTheme) {
+      const Icon = currentTheme.icon;
+      return <Icon className="h-4 w-4" />;
+    }
+    return <Sun className="h-4 w-4" />;
+  };
 
   return (
     <Sheet>
@@ -45,23 +60,27 @@ export function ThemeSwitcher() {
           </SheetDescription>
         </SheetHeader>
         <div className="grid gap-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              {theme === 'dark' ? (
-                <>
-                  <Moon className="h-4 w-4" />
-                  <span>Dark Mode</span>
-                </>
-              ) : (
-                <>
-                  <Sun className="h-4 w-4" />
-                  <span>Light Mode</span>
-                </>
-              )}
+          <div className="space-y-3">
+            <h3 className="text-sm font-medium">Theme</h3>
+            <div className="grid grid-cols-1 gap-2">
+              {themes.map((themeOption) => {
+                const Icon = themeOption.icon;
+                return (
+                  <Button
+                    key={themeOption.id}
+                    variant={theme === themeOption.id ? 'default' : 'outline'}
+                    className="flex items-start justify-start h-auto p-3"
+                    onClick={() => setTheme(themeOption.id as 'light' | 'dark' | 'beige')}
+                  >
+                    <Icon className="h-4 w-4 mr-3 mt-0.5" />
+                    <div className="text-left">
+                      <div className="font-medium">{themeOption.name}</div>
+                      <div className="text-xs text-muted-foreground">{themeOption.description}</div>
+                    </div>
+                  </Button>
+                );
+              })}
             </div>
-            <Button variant="outline" onClick={toggleTheme} size="sm">
-              Toggle
-            </Button>
           </div>
 
           <div className="space-y-2">

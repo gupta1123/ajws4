@@ -67,8 +67,8 @@ const pageHeaders: Record<string, PageHeader> = {
     subtitle: 'Review and manage event approvals.'
   },
   '/attendance': {
-    title: 'Attendance',
-    subtitle: 'Track student and staff attendance records.'
+    title: 'Attendance Management',
+    subtitle: 'Track and manage student attendance records'
   },
   '/leave-requests': {
     title: 'Leave Requests',
@@ -105,6 +105,34 @@ const pageHeaders: Record<string, PageHeader> = {
   '/students/[id]/edit': {
     title: 'Edit Student',
     subtitle: 'Update student information and details.'
+  },
+  '/timetable': {
+    title: 'My Timetable',
+    subtitle: 'Your weekly teaching schedule'
+  },
+  '/announcements': {
+    title: 'Announcements',
+    subtitle: 'Create and manage school announcements for students, parents, and staff'
+  },
+  '/announcements/create': {
+    title: 'Create Announcement',
+    subtitle: 'Add a new announcement for the school community'
+  },
+  '/admin/announcements': {
+    title: 'Announcements',
+    subtitle: 'Create and manage school announcements'
+  },
+  '/admin/announcements/create': {
+    title: 'Create Announcement',
+    subtitle: 'Add a new announcement for the school community'
+  },
+  '/classes': {
+    title: 'My Classes',
+    subtitle: 'View and manage your assigned classes'
+  },
+  '/admin/timetable': {
+    title: 'Timetable Management',
+    subtitle: 'Create and manage school timetables for all classes'
   }
 };
 

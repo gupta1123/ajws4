@@ -9,16 +9,17 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { 
-  Search, 
-  Filter,
+import {
+  Search,
   Users
 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useEffect, useState } from 'react';
 import { ClassCard } from '@/components/classes/class-card';
 import { academicServices } from '@/lib/api/academic';
 
 interface TeacherClass {
+  id: string;
   name: string;
   division: string;
   studentCount: number;
@@ -27,6 +28,39 @@ interface TeacherClass {
   classDivisionId: string;
   assignmentId: string;
 }
+
+// Skeleton loader for class cards
+const ClassCardSkeleton = () => (
+  <Card className="hover:shadow-md transition-shadow">
+    <CardContent className="p-6">
+      <div className="space-y-4">
+        {/* Header with class name and division */}
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-6 w-20" />
+            <Skeleton className="h-4 w-16" />
+          </div>
+          <Skeleton className="h-8 w-8 rounded-full" />
+        </div>
+
+        {/* Student count */}
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-6 w-12" />
+        </div>
+
+        {/* Teacher role */}
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-20" />
+          <Skeleton className="h-5 w-16" />
+        </div>
+
+        {/* Action button */}
+        <Skeleton className="h-9 w-full" />
+      </div>
+    </CardContent>
+  </Card>
+);
 
 export default function ClassesPage() {
   const { user } = useAuth();
@@ -96,22 +130,38 @@ export default function ClassesPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="animate-pulse">Loading classes...</div>
-      </div>
+      <ProtectedRoute>
+        <div className="container max-w-6xl mx-auto py-8">
+          <div className="space-y-6">
+            {/* Filters and Search Skeleton */}
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex flex-col md:flex-row gap-4">
+                  <div className="relative flex-1">
+                    <Skeleton className="h-10 w-full" />
+                  </div>
+                  <div className="flex gap-2">
+                    <Skeleton className="h-10 w-[140px]" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Class Cards Grid Skeleton */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {Array.from({ length: 8 }).map((_, index) => (
+                <ClassCardSkeleton key={index} />
+              ))}
+            </div>
+          </div>
+        </div>
+      </ProtectedRoute>
     );
   }
 
   return (
     <ProtectedRoute>
       <div className="container max-w-6xl mx-auto py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">My Classes</h1>
-          <p className="text-gray-600 dark:text-gray-300">
-            Manage your classes and view student information
-          </p>
-        </div>
-
         <div className="space-y-6">
             {/* Filters and Search */}
             <Card>
@@ -136,9 +186,6 @@ export default function ClassesPage() {
                         <SelectItem value="students">Sort by Students</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Button variant="outline" size="icon">
-                      <Filter className="h-4 w-4" />
-                    </Button>
                   </div>
                 </div>
               </CardContent>

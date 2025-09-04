@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Calendar, Clock, MapPin, Users, BookOpen, Clipboard } from 'lucide-react';
+import { Calendar, Clock, MapPin, Users, BookOpen, Clipboard, CheckCircle, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth/context';
 import { calendarServices } from '@/lib/api';
@@ -121,22 +121,30 @@ export function UpcomingEvents() {
     fetchUpcomingEvents();
   }, [token, user?.role]);
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric',
-      year: 'numeric'
-    });
+  // Format date to "25 Aug 25" format
+  const formatEventDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      const day = date.getDate();
+      const month = date.toLocaleString('default', { month: 'short' });
+      const year = date.getFullYear().toString().slice(-2);
+      return `${day} ${month} ${year}`;
+    } catch {
+      return dateString;
+    }
   };
 
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit',
-      hour12: true 
-    });
+  // Format time to "09:00 AM" format
+  const formatEventTime = (timeString: string) => {
+    try {
+      const [hours, minutes] = timeString.split(':');
+      const hour24 = parseInt(hours, 10);
+      const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24;
+      const ampm = hour24 >= 12 ? 'PM' : 'AM';
+      return `${hour12}:${minutes} ${ampm}`;
+    } catch {
+      return timeString;
+    }
   };
 
   const getEventIcon = (category: string) => {
@@ -229,49 +237,99 @@ export function UpcomingEvents() {
       <CardContent>
         {events.length > 0 ? (
           <div className="space-y-3">
-            {events.map((event) => (
-              <div key={event.id} className="p-3 rounded-lg border hover:bg-muted/30 transition-colors">
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <div className={`p-1.5 rounded-full ${getEventColor(event.event_category)}`}>
-                      {getEventIcon(event.event_category)}
+            {events.map((event) => {
+              const isSchoolWide = event.event_type === 'school_wide';
+              const isClassSpecific = event.event_type === 'class_specific';
+              const isApproved = event.status === 'approved';
+
+              return (
+                <div key={event.id} className="p-4 rounded-lg border hover:bg-muted/30 transition-colors">
+                  {/* Header with title and badges */}
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-start gap-3">
+                      <div className={`p-2 rounded-lg ${getEventColor(event.event_category)}`}>
+                        {getEventIcon(event.event_category)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold text-sm text-foreground mb-1">{event.title}</h4>
+
+                        {/* Event type and status badges */}
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-xs px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium">
+                            {isSchoolWide ? 'School Wide' : isClassSpecific ? 'Class Specific' : 'General'}
+                          </span>
+                          <span className={`text-xs px-2 py-1 rounded font-medium ${
+                            isApproved
+                              ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                              : 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300'
+                          }`}>
+                            {isApproved ? 'Approved' : 'Pending'}
+                          </span>
+                        </div>
+
+                        {/* Class info for class-specific events */}
+                        {isClassSpecific && event.class_info && (
+                          <p className="text-xs text-muted-foreground mb-2">
+                            {event.class_info.class_level} - {event.class_info.division}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="font-medium text-sm">{event.title}</h4>
-                      {event.class_info && (
-                        <p className="text-xs text-muted-foreground">
-                          {event.class_info.class_level} - {event.class_info.division}
-                        </p>
+
+                    {/* Category badge */}
+                    <div className={`px-2 py-1 rounded-full text-xs font-medium ${getEventColor(event.event_category)}`}>
+                      {event.event_category}
+                    </div>
+                  </div>
+
+                  {/* Event details */}
+                  <div className="space-y-2">
+                    {/* Date and time */}
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Clock className="h-3 w-3" />
+                      <span className="font-medium">{formatEventDate(event.event_date)}</span>
+                      <span>at</span>
+                      <span>
+                        {event.start_time && event.end_time
+                          ? `${formatEventTime(event.start_time)} - ${formatEventTime(event.end_time)}`
+                          : formatEventTime(event.start_time || '00:00')
+                        }
+                      </span>
+                    </div>
+
+                    {/* Creator information */}
+                    {(event.creator?.full_name || event.creator_name) && (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Users className="h-3 w-3" />
+                        <span>
+                          Created by {event.creator?.full_name || event.creator_name}
+                          {event.creator?.role && (
+                            <span className="text-xs px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 capitalize font-medium ml-1">
+                              {event.creator.role}
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Status indicator */}
+                    <div className="flex items-center gap-2 text-xs">
+                      {isApproved ? (
+                        <>
+                          <CheckCircle className="h-3 w-3 text-green-500" />
+                          <span className="text-green-600 font-medium">Event is active</span>
+                        </>
+                      ) : (
+                        <>
+                          <XCircle className="h-3 w-3 text-orange-500" />
+                          <span className="text-orange-600 font-medium">Waiting for approval</span>
+                        </>
                       )}
                     </div>
                   </div>
-                  <div className={`px-2 py-1 rounded-full text-xs font-medium ${getEventColor(event.event_category)}`}>
-                    {event.event_category}
-                  </div>
                 </div>
-                
-                <div className="space-y-1 text-xs text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    <span>{formatDate(event.event_date)} at {formatTime(event.event_date)}</span>
-                  </div>
-                  
-                  {event.start_time && event.end_time && (
-                    <div className="flex items-center gap-1">
-                      <MapPin className="h-3 w-3" />
-                      <span>{event.start_time} - {event.end_time}</span>
-                    </div>
-                  )}
-                  
-                  {(event.creator?.full_name || event.creator_name) && (
-                    <div className="flex items-center gap-1">
-                      <Users className="h-3 w-3" />
-                      <span>Created by {event.creator?.full_name || event.creator_name}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="text-center py-8 text-muted-foreground">

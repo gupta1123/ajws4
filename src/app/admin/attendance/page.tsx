@@ -118,45 +118,6 @@ export default function AdminAttendancePage() {
 
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">
-      {/* Page Header */}
-      <Card className="border-0 shadow-none bg-gradient-to-r from-primary/10 to-primary/5">
-        <CardContent className="p-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <CheckSquare className="h-6 w-6 text-primary" />
-                </div>
-                <h1 className="text-3xl font-bold">Attendance Management</h1>
-              </div>
-              <p className="text-muted-foreground">
-                Monitor and review attendance across all classes
-              </p>
-            </div>
-
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={handleRefresh}
-                disabled={loading}
-                className="flex items-center gap-2"
-              >
-                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handleExport}
-                className="flex items-center gap-2"
-              >
-                <Download className="h-4 w-4" />
-                Export
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Date Selection */}
       <Card className="hover:shadow-md transition-shadow">
         <CardHeader>
@@ -285,45 +246,6 @@ export default function AdminAttendancePage() {
         </CardContent>
       </Card>
 
-      {/* Quick Actions */}
-      {classesWithoutAttendance > 0 && (
-        <Card className="hover:shadow-md transition-shadow border-l-4 border-l-orange-500">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-orange-500" />
-              Action Required
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div>
-                <p className="text-foreground">
-                  <strong>{classesWithoutAttendance}</strong> classes still need attendance to be marked.
-                </p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Teachers should mark attendance for these classes to maintain accurate records.
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  // Filter to show only unmarked classes from the filtered list
-                  const unmarkedClasses = filteredAttendanceList.filter(
-                    classData => !classData.attendance_marked && !classData.is_holiday
-                  );
-                  if (unmarkedClasses.length > 0) {
-                    handleClassSelect(unmarkedClasses[0].class_division_id);
-                  }
-                }}
-                className="flex items-center gap-2"
-              >
-                <Users className="h-4 w-4" />
-                View Pending Classes
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
 
     </div>

@@ -145,7 +145,16 @@ export default function AdminAnnouncementsPage() {
     if (!api) return;
 
     try {
-      const params: any = {};
+      const params: {
+        start_date?: string;
+        end_date?: string;
+        status?: string;
+        announcement_type?: string;
+        priority?: string;
+        is_featured?: boolean;
+        page?: number;
+        limit?: number;
+      } = {};
       if (startDate && endDate) {
         params.start_date = startDate + 'T00:00:00Z';
         params.end_date = endDate + 'T23:59:59Z';
@@ -169,7 +178,16 @@ export default function AdminAnnouncementsPage() {
 
     try {
       setLoading(true);
-      const params: any = { status: 'pending' };
+      const params: {
+        start_date?: string;
+        end_date?: string;
+        status?: string;
+        announcement_type?: string;
+        priority?: string;
+        is_featured?: boolean;
+        page?: number;
+        limit?: number;
+      } = { status: 'pending' };
       if (startDate && endDate) {
         params.start_date = startDate + 'T00:00:00Z';
         params.end_date = endDate + 'T23:59:59Z';
@@ -276,14 +294,8 @@ export default function AdminAnnouncementsPage() {
 
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Announcements</h1>
-          <p className="text-muted-foreground">
-            Create and manage school announcements
-          </p>
-        </div>
+      {/* Create button moved to topbar area */}
+      <div className="mb-6 flex justify-end">
         <Button
           className="flex items-center gap-2"
           onClick={() => router.push('/admin/announcements/create')}

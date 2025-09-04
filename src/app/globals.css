@@ -177,6 +177,137 @@
   --school: var(--primary-orange);
 }
 
+/* Beige mode theme */
+.beige {
+  --background: oklch(0.98 0.01 60); /* Very light pastel beige */
+  --foreground: oklch(0.25 0.05 60); /* Dark brown */
+  --card: oklch(0.98 0.01 60); /* Very light pastel beige */
+  --card-foreground: oklch(0.25 0.05 60); /* Dark brown */
+  --popover: oklch(0.98 0.01 60); /* Very light pastel beige */
+  --popover-foreground: oklch(0.25 0.05 60); /* Dark brown */
+  --primary: oklch(0.65 0.15 200); /* Default indigo */
+  --primary-foreground: oklch(0.98 0.01 60); /* Very light pastel beige */
+  --secondary: oklch(0.96 0.02 60); /* Light pastel beige */
+  --secondary-foreground: oklch(0.25 0.05 60); /* Dark brown */
+  --muted: oklch(0.96 0.02 60); /* Light pastel beige */
+  --muted-foreground: oklch(0.45 0.05 60); /* Medium brown */
+  --accent: oklch(0.96 0.02 60); /* Light pastel beige */
+  --accent-foreground: oklch(0.25 0.05 60); /* Dark brown */
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.93 0.03 60); /* Medium pastel beige */
+  --input: oklch(0.93 0.03 60); /* Medium pastel beige */
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.92 0.03 60); /* Light pastel beige for sidebar */
+  --sidebar-foreground: oklch(0.25 0.05 60); /* Dark brown text */
+  --sidebar-primary: oklch(0.65 0.15 200); /* Default indigo */
+  --sidebar-primary-foreground: oklch(0.98 0.01 60); /* Very light beige */
+  --sidebar-accent: oklch(0.88 0.05 60); /* Slightly darker pastel beige for accents */
+  --sidebar-accent-foreground: oklch(0.25 0.05 60); /* Dark brown text */
+  --sidebar-border: oklch(0.85 0.08 60); /* Medium pastel beige for borders */
+  --sidebar-ring: oklch(0.708 0 0);
+  
+  /* Status colors */
+  --status-success: oklch(0.8 0.2 140); /* Green */
+  --status-warning: oklch(0.8 0.2 80); /* Yellow */
+  --status-error: oklch(0.6 0.2 20); /* Red */
+  --status-info: oklch(0.7 0.2 240); /* Blue */
+  
+  /* Calendar event colors */
+  --school: oklch(0.6 0.2 240); /* Blue */
+  --meeting: oklch(0.6 0.2 300); /* Purple */
+  --class: oklch(0.6 0.2 140); /* Green */
+  --birthday: oklch(0.7 0.2 50); /* Pink/Orange */
+  --room-booking: oklch(0.8 0.2 80); /* Yellow */
+  --leave: oklch(0.5 0.2 20); /* Red */
+  
+  /* Color scheme variables */
+  --primary-blue: oklch(0.6 0.2 240);
+  --primary-green: oklch(0.6 0.2 140);
+  --primary-purple: oklch(0.6 0.2 300);
+  --primary-orange: oklch(0.7 0.2 50);
+}
+
+/* Beige mode specific styles */
+.beige .sidebar {
+  background-color: var(--sidebar);
+  border-right-color: var(--sidebar-border);
+}
+
+.beige .sidebar-nav-item {
+  color: var(--sidebar-foreground);
+}
+
+.beige .sidebar-nav-item:hover {
+  background-color: var(--sidebar-accent);
+  color: var(--sidebar-foreground);
+}
+
+.beige .sidebar-nav-item.active {
+  background-color: var(--sidebar-accent);
+  color: var(--sidebar-primary);
+}
+
+.beige .sidebar-category {
+  color: var(--sidebar-foreground);
+}
+
+/* Utility classes for sidebar colors */
+.bg-sidebar {
+  background-color: var(--sidebar);
+}
+
+.border-sidebar-border {
+  border-color: var(--sidebar-border);
+}
+
+.text-sidebar-foreground {
+  color: var(--sidebar-foreground);
+}
+
+.bg-sidebar-accent {
+  background-color: var(--sidebar-accent);
+}
+
+.text-sidebar-primary {
+  color: var(--sidebar-primary);
+}
+
+/* Enhanced sidebar styling */
+.sidebar {
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+}
+
+.beige .sidebar {
+  box-shadow: 2px 0 8px rgba(160, 120, 80, 0.1);
+}
+
+.beige .topbar {
+  background-color: var(--background);
+  border-bottom-color: var(--border);
+}
+
+.beige .card {
+  background-color: var(--card);
+  border-color: var(--border);
+}
+
+.beige .table-header {
+  background-color: var(--muted);
+}
+
+.beige .table-row:nth-child(even) {
+  background-color: var(--muted);
+}
+
+.beige .table-row:nth-child(odd) {
+  background-color: var(--background);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

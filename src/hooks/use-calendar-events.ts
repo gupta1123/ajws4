@@ -250,12 +250,12 @@ export const useCalendarEvents = (): UseCalendarEventsReturn => {
     }
   }, [token, user, handleApiError]);
 
-  // Auto-fetch events when token is available
+  // Auto-fetch events when token is available (skip for teachers - let calendar page handle it)
   useEffect(() => {
-    if (token) {
+    if (token && user?.role !== 'teacher') {
       fetchEvents();
     }
-  }, [token, fetchEvents]);
+  }, [token, user?.role, fetchEvents]);
 
   return {
     events,

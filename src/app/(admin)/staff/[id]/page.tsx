@@ -131,6 +131,8 @@ export default function StaffDetailPage({ params }: StaffDetailPageProps) {
     }
   }, [token]);
 
+
+
   // Extract staff ID from params
   useEffect(() => {
     const extractId = async () => {
@@ -471,52 +473,52 @@ export default function StaffDetailPage({ params }: StaffDetailPageProps) {
   return (
     <ProtectedRoute>
       <div className="container max-w-4xl mx-auto py-6">
-        {/* Header */}
-        <div className="mb-6">
+        {/* Back button and action buttons in header area */}
+        <div className="mb-6 flex items-center justify-between">
           <Button
             variant="ghost"
             onClick={() => router.back()}
-            className="mb-4 flex items-center gap-2 text-muted-foreground hover:text-foreground"
+            className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to Staff
           </Button>
 
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <Avatar className="h-16 w-16">
-                <AvatarFallback className="text-xl bg-primary/10 text-primary font-semibold">
-                  {staff.full_name.split(' ').map((n: string) => n[0]).join('').toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              onClick={() => router.push(`/staff/${staff?.id}/edit`)}
+              className="flex items-center gap-2"
+            >
+              <Shield className="w-4 h-4" />
+              Edit
+            </Button>
 
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">{staff.full_name}</h1>
-                <p className="text-muted-foreground mt-1">{staff.phone_number}</p>
-              </div>
-            </div>
+            <Button
+              variant="destructive"
+              onClick={() => setShowDeleteModal(true)}
+              className="flex items-center gap-2"
+            >
+              <AlertTriangle className="w-4 h-4" />
+              Delete
+            </Button>
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            onClick={() => router.push(`/staff/${staff.id}/edit`)}
-            className="flex items-center gap-2"
-          >
-            <Shield className="w-4 h-4" />
-            Edit
-          </Button>
+        {/* Staff avatar and info in content area */}
+        <div className="mb-6">
+          <div className="flex items-center gap-4">
+            <Avatar className="h-16 w-16">
+              <AvatarFallback className="text-xl bg-primary/10 text-primary font-semibold">
+                {staff?.full_name?.split(' ').map((n: string) => n[0]).join('').toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
 
-          <Button
-            variant="destructive"
-            onClick={() => setShowDeleteModal(true)}
-            className="flex items-center gap-2"
-          >
-            <AlertTriangle className="w-4 h-4" />
-            Delete
-          </Button>
+            <div>
+              <h2 className="text-xl font-semibold text-foreground">{staff?.full_name}</h2>
+              <p className="text-muted-foreground">{staff?.phone_number}</p>
+            </div>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-6">
@@ -663,190 +665,189 @@ export default function StaffDetailPage({ params }: StaffDetailPageProps) {
               </CardContent>
             </Card>
           )}
-        </div>
 
+          {/* Delete Confirmation Modal */}
+          <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-red-500" />
+                  Delete Staff Member
+                </DialogTitle>
+                <DialogDescription>
+                  Are you sure you want to delete &ldquo;{staff?.full_name}&rdquo;? This action cannot be undone.
+                </DialogDescription>
+              </DialogHeader>
 
-        {/* Delete Confirmation Modal */}
-        <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-red-500" />
-                Delete Staff Member
-              </DialogTitle>
-              <DialogDescription>
-                Are you sure you want to delete &ldquo;{staff?.full_name}&rdquo;? This action cannot be undone.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="py-4">
-              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-sm text-red-800">
-                  <strong>Warning:</strong> Deleting this staff member will also remove all their assignments and cannot be recovered.
-                </p>
-              </div>
-            </div>
-
-            <DialogFooter className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setShowDeleteModal(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => {
-                  // Handle delete logic here
-                  console.log('Delete staff member:', staff?.id);
-                  setShowDeleteModal(false);
-                }}
-                className="flex items-center gap-2"
-              >
-                <AlertTriangle className="w-4 h-4" />
-                Delete Staff Member
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Subject Management Dialog */}
-        <Dialog open={showSubjectDialog} onOpenChange={setShowSubjectDialog}>
-          <DialogContent className="sm:max-w-2xl">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <GraduationCap className="w-5 h-5 text-primary" />
-                Manage Teaching Subjects
-              </DialogTitle>
-              <DialogDescription>
-                Select subjects for {staff?.full_name} to teach
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-6">
-              {/* Current subjects */}
-              {teacherSubjects.length > 0 && (
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Currently assigned subjects:</Label>
-                  <div className="flex flex-wrap gap-1">
-                    {teacherSubjects.map((subject) => (
-                      <Badge key={subject} variant="outline" className="text-xs">
-                        {subject}
-                      </Badge>
-                    ))}
-                  </div>
+              <div className="py-4">
+                <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-800">
+                    <strong>Warning:</strong> Deleting this staff member will also remove all their assignments and cannot be recovered.
+                  </p>
                 </div>
-              )}
+              </div>
 
-              {/* Assignment Mode */}
-              <div className="space-y-2">
-                <Label>Assignment Mode</Label>
-                <Select
-                  value={assignmentMode}
-                  onValueChange={(value: 'replace' | 'append') => setAssignmentMode(value)}
+              <DialogFooter className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowDeleteModal(false)}
                 >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="replace">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="w-4 h-4 text-green-500" />
-                        Replace existing subjects
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="append">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="w-4 h-4 text-blue-500" />
-                        Add to existing subjects
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  {assignmentMode === 'replace'
-                    ? 'This will replace all existing subjects with the selected ones.'
-                    : 'This will add the selected subjects to the existing ones.'
-                  }
-                </p>
-              </div>
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    // Handle delete logic here
+                    console.log('Delete staff member:', staff?.id);
+                    setShowDeleteModal(false);
+                  }}
+                  className="flex items-center gap-2"
+                >
+                  <AlertTriangle className="w-4 h-4" />
+                  Delete Staff Member
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
-              {/* Subject Selection */}
-              <div className="space-y-3">
-                <Label>Select Subjects *</Label>
-                {availableSubjectsLoading ? (
-                  <div className="flex items-center justify-center gap-3 py-8">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
-                    <span className="text-muted-foreground">Loading subjects...</span>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto p-3 border rounded-lg bg-muted/30">
-                    {availableSubjects.map((subject) => (
-                      <div key={subject.id} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`subject-${subject.id}`}
-                          checked={selectedSubjects.includes(subject.name)}
-                          onCheckedChange={() => handleSubjectToggle(subject.name)}
-                        />
-                        <Label
-                          htmlFor={`subject-${subject.id}`}
-                          className="text-sm cursor-pointer flex-1 truncate"
-                        >
-                          {subject.name}
-                        </Label>
-                      </div>
-                    ))}
+          {/* Subject Management Dialog */}
+          <Dialog open={showSubjectDialog} onOpenChange={setShowSubjectDialog}>
+            <DialogContent className="sm:max-w-2xl">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <GraduationCap className="w-5 h-5 text-primary" />
+                  Manage Teaching Subjects
+                </DialogTitle>
+                <DialogDescription>
+                  Select subjects for {staff?.full_name} to teach
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-6">
+                {/* Current subjects */}
+                {teacherSubjects.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Currently assigned subjects:</Label>
+                    <div className="flex flex-wrap gap-1">
+                      {teacherSubjects.map((subject) => (
+                        <Badge key={subject} variant="outline" className="text-xs">
+                          {subject}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
                 )}
-              </div>
 
-              {/* Selected subjects preview */}
-              {selectedSubjects.length > 0 && (
+                {/* Assignment Mode */}
                 <div className="space-y-2">
-                  <p className="text-sm font-medium">Selected subjects ({selectedSubjects.length}):</p>
-                  <div className="flex flex-wrap gap-1">
-                    {selectedSubjects.map((subject) => (
-                      <Badge key={subject} variant="default" className="text-xs">
-                        {subject}
-                      </Badge>
-                    ))}
-                  </div>
+                  <Label>Assignment Mode</Label>
+                  <Select
+                    value={assignmentMode}
+                    onValueChange={(value: 'replace' | 'append') => setAssignmentMode(value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="replace">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="w-4 h-4 text-green-500" />
+                          Replace existing subjects
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="append">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="w-4 h-4 text-blue-500" />
+                          Add to existing subjects
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {assignmentMode === 'replace'
+                      ? 'This will replace all existing subjects with the selected ones.'
+                      : 'This will add the selected subjects to the existing ones.'
+                    }
+                  </p>
                 </div>
-              )}
-            </div>
 
-            <DialogFooter className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowSubjectDialog(false);
-                  setSelectedSubjects([]);
-                  setAssignmentMode('replace');
-                }}
-                disabled={subjectAssignmentLoading}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={assignSubjectsToTeacher}
-                disabled={subjectAssignmentLoading || selectedSubjects.length === 0}
-                className="flex items-center gap-2"
-              >
-                {subjectAssignmentLoading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Assigning...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="h-4 w-4" />
-                    Assign {selectedSubjects.length} Subject{selectedSubjects.length !== 1 ? 's' : ''}
-                  </>
+                {/* Subject Selection */}
+                <div className="space-y-3">
+                  <Label>Select Subjects *</Label>
+                  {availableSubjectsLoading ? (
+                    <div className="flex items-center justify-center gap-3 py-8">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
+                      <span className="text-muted-foreground">Loading subjects...</span>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto p-3 border rounded-lg bg-muted/30">
+                      {availableSubjects.map((subject) => (
+                        <div key={subject.id} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`subject-${subject.id}`}
+                            checked={selectedSubjects.includes(subject.name)}
+                            onCheckedChange={() => handleSubjectToggle(subject.name)}
+                          />
+                          <Label
+                            htmlFor={`subject-${subject.id}`}
+                            className="text-sm cursor-pointer flex-1 truncate"
+                          >
+                            {subject.name}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Selected subjects preview */}
+                {selectedSubjects.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Selected subjects ({selectedSubjects.length}):</p>
+                    <div className="flex flex-wrap gap-1">
+                      {selectedSubjects.map((subject) => (
+                        <Badge key={subject} variant="default" className="text-xs">
+                          {subject}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
                 )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+              </div>
+
+              <DialogFooter className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowSubjectDialog(false);
+                    setSelectedSubjects([]);
+                    setAssignmentMode('replace');
+                  }}
+                  disabled={subjectAssignmentLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={assignSubjectsToTeacher}
+                  disabled={subjectAssignmentLoading || selectedSubjects.length === 0}
+                  className="flex items-center gap-2"
+                >
+                  {subjectAssignmentLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Assigning...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="h-4 w-4" />
+                      Assign {selectedSubjects.length} Subject{selectedSubjects.length !== 1 ? 's' : ''}
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
     </ProtectedRoute>
   );

@@ -329,18 +329,9 @@ export default function CalendarPage() {
         {/* Only show content when auth is ready */}
         {!authLoading && (
           <>
-            {/* Header with Create Event Button */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <CalendarIcon className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold">School Calendar</h1>
-                  <p className="text-sm text-muted-foreground">Manage and view all school events</p>
-                </div>
-              </div>
-              <Button 
+            {/* Create button moved to topbar area */}
+            <div className="mb-6 flex justify-end">
+              <Button
                 onClick={handleCreateEvent}
                 size="lg"
                 className="h-11 px-4"

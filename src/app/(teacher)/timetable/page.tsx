@@ -13,13 +13,90 @@ import {
   User,
   RefreshCw,
   AlertCircle,
-  Calendar,
-  Loader2
+  Calendar
 } from 'lucide-react';
 import { useState } from 'react';
 import { useTimetable } from '@/hooks/use-timetable';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+// Skeleton loader for timetable table rows
+const TimetableRowSkeleton = () => (
+  <tr className="border-b">
+    <td className="p-4">
+      <Skeleton className="h-6 w-8" />
+    </td>
+    <td className="p-4">
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-4 w-4" />
+        <Skeleton className="h-4 w-20" />
+      </div>
+    </td>
+    <td className="p-4">
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-4 w-4" />
+        <Skeleton className="h-4 w-16" />
+      </div>
+    </td>
+    <td className="p-4">
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-4 w-4" />
+        <Skeleton className="h-4 w-24" />
+      </div>
+    </td>
+  </tr>
+);
+
+// Skeleton loader for the entire timetable
+const TimetableSkeleton = () => (
+  <Card>
+    <CardHeader>
+      <CardTitle className="flex items-center gap-2">
+        <Skeleton className="h-5 w-5" />
+        <Skeleton className="h-6 w-32" />
+      </CardTitle>
+      <CardDescription>
+        <Skeleton className="h-4 w-64" />
+      </CardDescription>
+    </CardHeader>
+    <CardContent>
+      {/* Day selection buttons skeleton */}
+      <div className="flex flex-wrap gap-2 mb-6">
+        {DAYS_OF_WEEK.map((_, index) => (
+          <Skeleton key={index} className="h-10 w-20" />
+        ))}
+      </div>
+
+      {/* Table skeleton */}
+      <div className="rounded-md border">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b bg-muted/50">
+              <th className="text-left p-4">
+                <Skeleton className="h-4 w-12" />
+              </th>
+              <th className="text-left p-4">
+                <Skeleton className="h-4 w-8" />
+              </th>
+              <th className="text-left p-4">
+                <Skeleton className="h-4 w-12" />
+              </th>
+              <th className="text-left p-4">
+                <Skeleton className="h-4 w-10" />
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: 6 }).map((_, index) => (
+              <TimetableRowSkeleton key={index} />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </CardContent>
+  </Card>
+);
 
 export default function TimetablePage() {
   const { user } = useAuth();
@@ -54,11 +131,13 @@ export default function TimetablePage() {
     return (
       <ProtectedRoute>
         <div className="container max-w-6xl mx-auto py-8">
-          <div className="flex items-center justify-center min-h-[400px]">
-            <div className="text-center">
-              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-              <p className="text-muted-foreground">Loading your timetable...</p>
-            </div>
+          {/* Refresh button skeleton */}
+          <div className="mb-6 flex justify-end">
+            <Skeleton className="h-9 w-24" />
+          </div>
+
+          <div className="grid gap-6">
+            <TimetableSkeleton />
           </div>
         </div>
       </ProtectedRoute>
@@ -88,19 +167,12 @@ export default function TimetablePage() {
   return (
     <ProtectedRoute>
       <div className="container max-w-6xl mx-auto py-8">
-        <div className="mb-8">
-          <div className="flex justify-between items-center mb-6">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">My Timetable</h1>
-              <p className="text-muted-foreground">
-                Your weekly teaching schedule
-              </p>
-            </div>
-            <Button onClick={refreshTimetable} variant="outline" size="sm">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
-          </div>
+        {/* Refresh button moved to topbar area */}
+        <div className="mb-6 flex justify-end">
+          <Button onClick={refreshTimetable} variant="outline" size="sm">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
         </div>
 
         <div className="grid gap-6">

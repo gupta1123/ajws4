@@ -32,7 +32,7 @@ import { formatDate } from '@/lib/utils';
 
 export default function ProfilePage() {
   const { user, logout } = useAuth();
-  const { theme, colorScheme, toggleTheme, setColorScheme } = useTheme();
+  const { theme, colorScheme, setTheme, setColorScheme } = useTheme();
   const router = useRouter();
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
@@ -289,33 +289,34 @@ export default function ProfilePage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    {theme === 'dark' ? (
-                      <>
-                        <Moon className="h-5 w-5" />
-                        <div>
-                          <p className="font-medium">Dark Mode</p>
-                          <p className="text-sm text-muted-foreground">Reduce eye strain in low light</p>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <Sun className="h-5 w-5" />
-                        <div>
-                          <p className="font-medium">Light Mode</p>
-                          <p className="text-sm text-muted-foreground">Bright and vibrant interface</p>
-                        </div>
-                      </>
-                    )}
+                <div className="space-y-3">
+                  <Label className="text-base">Theme</Label>
+                  <div className="grid grid-cols-1 gap-3">
+                    {[
+                      { id: 'light', name: 'Light Mode', icon: Sun, description: 'Bright and vibrant interface' },
+                      { id: 'dark', name: 'Dark Mode', icon: Moon, description: 'Reduce eye strain in low light' },
+                      { id: 'beige', name: 'Beige Mode', icon: Palette, description: 'Warm and professional look' }
+                    ].map((themeOption) => {
+                      const Icon = themeOption.icon;
+                      return (
+                        <Button
+                          key={themeOption.id}
+                          variant={theme === themeOption.id ? 'default' : 'outline'}
+                          className="flex items-start justify-start h-auto p-4"
+                          onClick={() => setTheme(themeOption.id as 'light' | 'dark' | 'beige')}
+                        >
+                          <Icon className="h-5 w-5 mr-3 mt-0.5" />
+                          <div className="text-left">
+                            <div className="font-medium">{themeOption.name}</div>
+                            <div className="text-sm text-muted-foreground">{themeOption.description}</div>
+                          </div>
+                          {theme === themeOption.id && (
+                            <div className="ml-auto h-2 w-2 rounded-full bg-current"></div>
+                          )}
+                        </Button>
+                      );
+                    })}
                   </div>
-                  <Button 
-                    variant="outline" 
-                    onClick={toggleTheme}
-                    className="flex items-center gap-2"
-                  >
-                    {theme === 'dark' ? 'Switch to Light' : 'Switch to Dark'}
-                  </Button>
                 </div>
 
                 <div className="space-y-3">
