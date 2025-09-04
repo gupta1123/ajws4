@@ -59,5 +59,16 @@ export const leaveRequestServices = {
   // Get leave requests for a specific class division
   getByClass: async (classDivisionId: string, params: Omit<ListLeaveRequestsParams, 'class_division_id'> = {}, token: string): Promise<ApiResponseWithCache<{ leave_requests: import('@/types/leave-requests').LeaveRequest[] }> | ApiErrorResponse | Blob> => {
     return leaveRequestServices.list({ ...params, class_division_id: classDivisionId }, token);
+  },
+
+  // Get leave requests for teacher's assigned classes
+  getTeacherLeaveRequests: async (fromDate: string, toDate: string, token: string): Promise<ApiResponse<{ leave_requests: import('@/types/leave-requests').LeaveRequest[], filters: { academic_year: string | null, from_date: string, to_date: string } }> | ApiErrorResponse | Blob> => {
+    const queryParams = new URLSearchParams({
+      from_date: fromDate,
+      to_date: toDate
+    });
+
+    const response = await apiClient.get<{ leave_requests: import('@/types/leave-requests').LeaveRequest[], filters: { academic_year: string | null, from_date: string, to_date: string } }>(`/api/leave-requests/teacher/class?${queryParams}`, token);
+    return response;
   }
 };

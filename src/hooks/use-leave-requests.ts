@@ -24,7 +24,7 @@ interface UseLeaveRequestsReturn {
 }
 
 export const useLeaveRequests = (): UseLeaveRequestsReturn => {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,13 +37,29 @@ export const useLeaveRequests = (): UseLeaveRequestsReturn => {
     try {
       setLoading(true);
       setError(null);
-      
+
       if (!token) {
         setError('Authentication token not available');
         return;
       }
-      
-      const response = await leaveRequestServices.list(params, token);
+
+      let response;
+
+      // Use teacher-specific endpoint for teachers
+      if (user?.role === 'teacher') {
+        // For teachers, use the teacher-specific endpoint with date range
+        const today = new Date();
+        const endDate = new Date();
+        endDate.setDate(today.getDate() + 30); // Next 30 days
+
+        const fromDate = params.start_date || today.toISOString().split('T')[0];
+        const toDate = params.end_date || endDate.toISOString().split('T')[0];
+
+        response = await leaveRequestServices.getTeacherLeaveRequests(fromDate, toDate, token);
+      } else {
+        // For admin/principal, use the general list endpoint
+        response = await leaveRequestServices.list(params, token);
+      }
 
       // Handle Blob response (shouldn't happen for JSON endpoints)
       if (response instanceof Blob) {
@@ -77,7 +93,7 @@ export const useLeaveRequests = (): UseLeaveRequestsReturn => {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, user?.role]);
 
   const createLeaveRequest = useCallback(async (data: CreateLeaveRequest): Promise<LeaveRequest | null> => {
     try {
@@ -237,7 +253,7 @@ export const useLeaveRequests = (): UseLeaveRequestsReturn => {
     if (token) {
       fetchLeaveRequests();
     }
-  }, [fetchLeaveRequests, token]);
+  }, [fetchLeaveRequests, token, user?.role]);
 
   return {
     leaveRequests,

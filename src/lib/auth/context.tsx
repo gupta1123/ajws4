@@ -35,13 +35,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
-    
+
     if (storedToken && storedUser) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
-      setIsAuthenticated(true);
+      try {
+        const userData = JSON.parse(storedUser);
+        setToken(storedToken);
+        setUser(userData);
+        setIsAuthenticated(true);
+
+        // Validate that stored user data is still valid by checking if user is a teacher
+        // If not a teacher, clear any stale teacher data
+        if (userData.role !== 'teacher') {
+          localStorage.removeItem('teacherData');
+        }
+      } catch (error) {
+        // If stored user data is corrupted, clear everything
+        console.warn('Corrupted user data in localStorage, clearing...');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('teacherData');
+      }
+    } else {
+      // If no user data but teacher data exists, clear it (stale data)
+      if (localStorage.getItem('teacherData')) {
+        console.warn('Found teacher data without user authentication, clearing...');
+        localStorage.removeItem('teacherData');
+      }
     }
-    
+
     setLoading(false);
   }, []);
 
@@ -74,6 +95,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Store in localStorage
         localStorage.setItem('token', token);
         localStorage.setItem('user', JSON.stringify(user));
+
+        // Clear any existing teacher data before fetching new data
+        localStorage.removeItem('teacherData');
+        // Also clear any other teacher-related cached data
+        Object.keys(localStorage).forEach(key => {
+          if (key.includes('teacher') || key.includes('academic') || key.includes('class')) {
+            localStorage.removeItem(key);
+          }
+        });
 
         // Fetch teacher data if user is a teacher
         if (user.role === 'teacher') {

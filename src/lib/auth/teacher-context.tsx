@@ -88,6 +88,9 @@ export const fetchTeacherData = async (token: string, setTeacherData?: (data: Te
       if (setTeacherData) {
         setTeacherData(data);
       }
+
+      // Dispatch custom event to notify TeacherProvider of data update
+      window.dispatchEvent(new CustomEvent('teacherDataUpdated'));
     } else {
       throw new Error('Failed to fetch teacher data');
     }
@@ -103,17 +106,63 @@ export function TeacherProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Load teacher data from localStorage on mount
+  // Load teacher data from localStorage on mount and when it changes
   useEffect(() => {
-    const storedTeacherData = localStorage.getItem(TEACHER_DATA_KEY);
-    if (storedTeacherData) {
-      try {
-        setTeacherData(JSON.parse(storedTeacherData));
-      } catch (err) {
-        console.error('Error parsing stored teacher data:', err);
-        localStorage.removeItem(TEACHER_DATA_KEY);
+    const loadTeacherData = () => {
+      const storedTeacherData = localStorage.getItem(TEACHER_DATA_KEY);
+      const storedUser = localStorage.getItem('user');
+
+      if (storedTeacherData) {
+        try {
+          const teacherData = JSON.parse(storedTeacherData);
+
+          // Validate that teacher data belongs to current user
+          if (storedUser) {
+            const userData = JSON.parse(storedUser);
+            if (teacherData.user_id === userData.id) {
+              setTeacherData(teacherData);
+            } else {
+              // Teacher data belongs to different user, clear it
+              localStorage.removeItem(TEACHER_DATA_KEY);
+              setTeacherData(null);
+            }
+          } else {
+            // No user data but teacher data exists - clear it
+            localStorage.removeItem(TEACHER_DATA_KEY);
+            setTeacherData(null);
+          }
+        } catch (err) {
+          // Error parsing stored teacher data, clear it
+          localStorage.removeItem(TEACHER_DATA_KEY);
+          setTeacherData(null);
+        }
+      } else {
+        setTeacherData(null);
       }
-    }
+    };
+
+    // Load data initially
+    loadTeacherData();
+
+    // Listen for storage changes (when teacher data is updated in another tab/window)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === TEACHER_DATA_KEY) {
+        loadTeacherData();
+      }
+    };
+
+    // Also listen for custom events when teacher data is updated in the same tab
+    const handleTeacherDataUpdate = () => {
+      loadTeacherData();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('teacherDataUpdated', handleTeacherDataUpdate);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('teacherDataUpdated', handleTeacherDataUpdate);
+    };
   }, []);
 
   const fetchTeacherDataInternal = async (token: string): Promise<void> => {
