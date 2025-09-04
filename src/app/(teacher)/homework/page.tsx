@@ -287,7 +287,7 @@ export default function HomeworkPage() {
                         <SelectItem key={subject} value={subject}>{subject}</SelectItem>
                       ))
                     ) : (
-                      <SelectItem value="" disabled>No subjects assigned</SelectItem>
+                      <SelectItem value="no-subjects" disabled>No subjects assigned</SelectItem>
                     )}
                   </SelectContent>
                 </Select>
@@ -302,7 +302,7 @@ export default function HomeworkPage() {
                         <SelectItem key={cls} value={cls}>{cls}</SelectItem>
                       ))
                     ) : (
-                      <SelectItem value="" disabled>No classes assigned</SelectItem>
+                      <SelectItem value="no-classes" disabled>No classes assigned</SelectItem>
                     )}
                   </SelectContent>
                 </Select>
