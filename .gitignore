@@ -104,3 +104,6 @@ __MACOSX/
 # Project specific
 docs/
 __MACOSX/
+
+# Zip files
+*.zip

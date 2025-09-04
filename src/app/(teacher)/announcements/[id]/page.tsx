@@ -63,7 +63,7 @@ export default function AnnouncementViewPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [announcement, setAnnouncement] = useState<Announcement | null>(null);
   const [loading, setLoading] = useState(true);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -209,11 +209,19 @@ export default function AnnouncementViewPage() {
           Back
         </Button>
         <div className="flex-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold tracking-tight">{announcement.title}</h1>
-            {announcement.is_featured && (
-              <Star className="w-6 h-6 text-yellow-500 fill-current" />
-            )}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl font-bold tracking-tight">{announcement.title}</h1>
+              {announcement.is_featured && (
+                <Star className="w-6 h-6 text-yellow-500 fill-current" />
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {getStatusIcon(announcement.status)}
+              <Badge className={getStatusColor(announcement.status)}>
+                {announcement.status.charAt(0).toUpperCase() + announcement.status.slice(1)}
+              </Badge>
+            </div>
           </div>
           <p className="text-muted-foreground mt-1">
             View announcement details and information
@@ -222,25 +230,27 @@ export default function AnnouncementViewPage() {
 
       </div>
 
-      {/* Action Buttons */}
-      <div className="flex items-center gap-3">
-        <Button
-          variant="outline"
-          onClick={() => router.push(`/announcements/${announcement.id}/edit`)}
-          className="flex items-center gap-2"
-        >
-          <Edit className="w-4 h-4" />
-          Edit
-        </Button>
-        <Button
-          variant="destructive"
-          onClick={() => setShowDeleteModal(true)}
-          className="flex items-center gap-2"
-        >
-          <Trash2 className="w-4 h-4" />
-          Delete
-        </Button>
-      </div>
+      {/* Action Buttons - Only show if user created this announcement */}
+      {user && announcement.created_by === user.id && (
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            onClick={() => router.push(`/announcements/${announcement.id}/edit`)}
+            className="flex items-center gap-2"
+          >
+            <Edit className="w-4 h-4" />
+            Edit
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={() => setShowDeleteModal(true)}
+            className="flex items-center gap-2"
+          >
+            <Trash2 className="w-4 h-4" />
+            Delete
+          </Button>
+        </div>
+      )}
 
       {/* Main Content Grid - Everything at one glance */}
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
@@ -272,26 +282,34 @@ export default function AnnouncementViewPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <h4 className="text-sm font-medium mb-3">Target Roles</h4>
+              <div className="space-y-3">
+                <div className="flex items-center gap-4">
+                  <span className="text-sm font-medium text-muted-foreground">Target Roles:</span>
                   <div className="flex flex-wrap gap-2">
                     {announcement.target_roles.map((role) => (
-                      <Badge key={role} variant="outline" className="px-3 py-1">
-                        {role.charAt(0).toUpperCase() + role.slice(1)}
+                      <Badge key={role} variant="outline" className="px-3 py-1 capitalize">
+                        {role}
                       </Badge>
                     ))}
                   </div>
                 </div>
                 {announcement.target_classes.length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-medium mb-3">Target Classes</h4>
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm font-medium text-muted-foreground">Target Classes:</span>
                     <div className="flex flex-wrap gap-2">
-                      {announcement.target_classes.map((classId) => (
-                        <Badge key={classId} variant="secondary" className="px-3 py-1">
-                          {classId}
-                        </Badge>
-                      ))}
+                      {(announcement as any).target_class_names && (announcement as any).target_class_names.length > 0 ? (
+                        (announcement as any).target_class_names.map((className: string, index: number) => (
+                          <Badge key={index} variant="secondary" className="px-3 py-1">
+                            {className}
+                          </Badge>
+                        ))
+                      ) : (
+                        announcement.target_classes.map((classId) => (
+                          <Badge key={classId} variant="secondary" className="px-3 py-1">
+                            {classId}
+                          </Badge>
+                        ))
+                      )}
                     </div>
                   </div>
                 )}
@@ -314,30 +332,22 @@ export default function AnnouncementViewPage() {
                     <span className="text-sm font-medium text-muted-foreground">Type:</span>
                     <div className="flex items-center gap-2">
                       {React.createElement(announcementTypes.find(t => t.value === announcement.announcement_type)?.icon || BookOpen, { className: "w-4 h-4" })}
-                      <span className="font-medium">{announcementTypes.find(t => t.value === announcement.announcement_type)?.label}</span>
+                      <span className="font-medium capitalize">{announcement.announcement_type.replace('_', ' ')}</span>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-muted-foreground">Status:</span>
-                    <div className="flex items-center gap-2">
-                      {getStatusIcon(announcement.status)}
-                      <Badge className={getStatusColor(announcement.status)}>
-                        {announcement.status.charAt(0).toUpperCase() + announcement.status.slice(1)}
-                      </Badge>
-                    </div>
+                    <span className="text-sm font-medium text-muted-foreground">Priority:</span>
+                    <Badge className={priorities.find(p => p.value === announcement.priority)?.color}>
+                      {announcement.priority.charAt(0).toUpperCase() + announcement.priority.slice(1)}
+                    </Badge>
                   </div>
-                  
 
                 </div>
 
                 <div className="space-y-3">
 
                   
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-muted-foreground">Views:</span>
-                    <span className="font-medium">{announcement.view_count}</span>
-                  </div>
                   
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-muted-foreground">Created:</span>
@@ -377,30 +387,32 @@ export default function AnnouncementViewPage() {
               <CardTitle>People & Process</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
-                <Label className="text-sm font-medium text-muted-foreground">Created By</Label>
-                <div className="mt-1">
-                  <div className="font-medium">{announcement.creator.full_name}</div>
-                  <div className="text-sm text-muted-foreground">{announcement.creator.role}</div>
-                </div>
-              </div>
-
-              {announcement.status === 'approved' && announcement.approver && (
+              <div className="flex items-center justify-between">
                 <div>
-                  <Label className="text-sm font-medium text-muted-foreground">Approved By</Label>
+                  <Label className="text-sm font-medium text-muted-foreground">Created By</Label>
                   <div className="mt-1">
-                    <div className="font-medium">{announcement.approver.full_name}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {announcement.approved_at ? formatDate(announcement.approved_at) : 'N/A'}
-                    </div>
+                    <div className="font-medium">{announcement.creator.full_name}</div>
+                    <div className="text-sm text-muted-foreground capitalize">{announcement.creator.role}</div>
                   </div>
                 </div>
-              )}
+
+                {announcement.status === 'approved' && announcement.approver && (
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Approved By</Label>
+                    <div className="mt-1">
+                      <div className="font-medium">{announcement.approver.full_name}</div>
+                      <div className="text-sm text-muted-foreground capitalize">
+                        {announcement.approver.role}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {announcement.status === 'rejected' && (
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Rejection Reason</Label>
-                  <div className="mt-2 p-3 bg-red-50 text-red-700 rounded-lg text-sm border border-red-200">
+                  <div className="mt-2 p-3 bg-red-50 text-red-700 rounded-lg text-sm border border-red-200 capitalize">
                     {announcement.rejection_reason || 'No reason provided'}
                   </div>
                 </div>

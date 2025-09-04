@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Save, BookOpen, AlertCircle, Calendar, Users, Star } from 'lucide-react';
+import { ArrowLeft, Save, BookOpen, AlertCircle, Calendar, Users, Star, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -34,13 +34,57 @@ const targetRoles = [
   { value: 'admin', label: 'Administrators' },
 ];
 
+// Import the Announcement interface from the view page for consistency
+interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  announcement_type: string;
+  status: 'pending' | 'approved' | 'rejected';
+  priority: 'low' | 'medium' | 'high';
+  created_by: string;
+  approved_by?: string;
+  approved_at?: string;
+  rejected_by?: string;
+  rejected_at?: string;
+  rejection_reason?: string;
+  target_roles: string[];
+  target_classes: string[];
+  target_departments: string[];
+  publish_at: string;
+  expires_at: string;
+  is_published: boolean;
+  is_featured: boolean;
+  view_count: number;
+  created_at: string;
+  updated_at: string;
+  target_subjects?: string[];
+  target_class_names?: string[];
+  target_classes_detailed?: Array<{
+    id: string;
+    name: string;
+  }>;
+  creator: {
+    id: string;
+    role: string;
+    full_name: string;
+  };
+  approver?: {
+    id: string;
+    role: string;
+    full_name: string;
+  };
+  attachments: any[];
+}
+
 export default function EditAnnouncementPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
-  const { token } = useAuth();
-  const [loading] = useState(false);
+  const { token, user } = useAuth();
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [announcement, setAnnouncement] = useState<Announcement | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -57,7 +101,65 @@ export default function EditAnnouncementPage() {
     is_featured: false,
   });
 
+  // Check if user can edit this announcement
+  const canEdit = announcement && user && announcement.created_by === user.id;
 
+  // Load announcement data
+  useEffect(() => {
+    const fetchAnnouncement = async (id: string) => {
+      try {
+        setLoading(true);
+        const response = await fetch(`https://ajws-school-ba8ae5e3f955.herokuapp.com/api/announcements/${id}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.status === 'success') {
+            const fetchedAnnouncement = data.data.announcement;
+            setAnnouncement(fetchedAnnouncement);
+
+            // Populate form with existing data
+            const publishDate = new Date(fetchedAnnouncement.publish_at);
+            const expiresDate = new Date(fetchedAnnouncement.expires_at);
+
+            setFormData({
+              title: fetchedAnnouncement.title || '',
+              content: fetchedAnnouncement.content || '',
+              announcement_type: fetchedAnnouncement.announcement_type || 'notification',
+              priority: fetchedAnnouncement.priority || 'medium',
+              target_roles: fetchedAnnouncement.target_roles || [],
+              target_classes: fetchedAnnouncement.target_classes || [],
+              publish_date: publishDate.toISOString().split('T')[0],
+              publish_time: publishDate.toTimeString().slice(0, 5),
+              expires_date: expiresDate.toISOString().split('T')[0],
+              expires_time: expiresDate.toTimeString().slice(0, 5),
+              is_featured: fetchedAnnouncement.is_featured || false,
+            });
+          }
+        } else {
+          throw new Error('Failed to fetch announcement');
+        }
+      } catch (error) {
+        console.error('Error fetching announcement:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to fetch announcement details',
+          variant: 'error',
+        });
+        router.push('/announcements');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (params.id && token) {
+      fetchAnnouncement(params.id as string);
+    }
+  }, [params.id, token, toast, router]);
 
   const handleUpdateAnnouncement = async () => {
     if (!formData.title.trim() || !formData.content.trim() || !formData.publish_date || !formData.publish_time || !formData.expires_date || !formData.expires_time) {
@@ -136,6 +238,18 @@ export default function EditAnnouncementPage() {
     return typeData ? typeData.icon : BookOpen;
   };
 
+  // Check permissions after data is loaded
+  useEffect(() => {
+    if (!loading && announcement && user && !canEdit) {
+      toast({
+        title: 'Access Denied',
+        description: 'You can only edit announcements that you created.',
+        variant: 'error',
+      });
+      router.push('/announcements');
+    }
+  }, [loading, announcement, user, canEdit, toast, router]);
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-6">
@@ -143,6 +257,23 @@ export default function EditAnnouncementPage() {
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
             <p className="text-muted-foreground">Loading announcement...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show access denied if user can't edit
+  if (!canEdit && announcement) {
+    return (
+      <div className="container mx-auto px-4 py-6">
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="text-muted-foreground">
+              <AlertCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
+              <p>You can only edit announcements that you created.</p>
+            </div>
           </div>
         </div>
       </div>
@@ -162,11 +293,24 @@ export default function EditAnnouncementPage() {
           <ArrowLeft className="w-4 h-4" />
           Back
         </Button>
-        <div>
+        <div className="flex-1">
           <h1 className="text-3xl font-bold tracking-tight">Edit Announcement</h1>
           <p className="text-muted-foreground">
             Update the announcement details
           </p>
+          {announcement && (
+            <div className="mt-2 flex items-center gap-2">
+              <Badge variant="outline">
+                {announcement.announcement_type.charAt(0).toUpperCase() + announcement.announcement_type.slice(1)}
+              </Badge>
+              <Badge className={priorities.find(p => p.value === announcement.priority)?.color}>
+                {announcement.priority.charAt(0).toUpperCase() + announcement.priority.slice(1)}
+              </Badge>
+              <span className="text-sm text-muted-foreground">
+                Created by {announcement.creator.full_name}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -340,6 +484,29 @@ export default function EditAnnouncementPage() {
                   Selected: {formData.target_roles.length} role(s)
                 </p>
               </div>
+
+              <div className="space-y-3">
+                <Label>Target Classes</Label>
+                <div className="flex flex-wrap gap-2">
+                  {announcement?.target_class_names && announcement.target_class_names.length > 0 ? (
+                    announcement.target_class_names.map((className, index) => (
+                      <Badge key={index} variant="secondary" className="px-3 py-1">
+                        {className}
+                      </Badge>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      {formData.target_classes.length > 0
+                        ? `${formData.target_classes.length} class(es) selected`
+                        : 'All classes will receive this announcement'
+                      }
+                    </p>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Classes are automatically determined based on your teaching assignments
+                </p>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -369,28 +536,6 @@ export default function EditAnnouncementPage() {
             </CardContent>
           </Card>
 
-          {/* Options */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Options</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="featured"
-                  checked={formData.is_featured}
-                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_featured: checked }))}
-                />
-                <Label htmlFor="featured" className="flex items-center gap-2">
-                  <Star className="w-4 h-4" />
-                  Mark as featured
-                </Label>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Featured announcements will be highlighted and appear at the top of the list.
-              </p>
-            </CardContent>
-          </Card>
 
           {/* Actions */}
           <Card>

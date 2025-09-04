@@ -261,6 +261,7 @@ export default function AnnouncementsPage() {
                   <TableHead>Type</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Priority</TableHead>
+                  <TableHead>Classes</TableHead>
                   <TableHead>Publish Date</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -290,6 +291,23 @@ export default function AnnouncementsPage() {
                       <Badge className={priorities.find(p => p.value === announcement.priority)?.color}>
                         {announcement.priority.charAt(0).toUpperCase() + announcement.priority.slice(1)}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {announcement.target_class_names && announcement.target_class_names.length > 0 ? (
+                          announcement.target_class_names.map((className, index) => (
+                            <Badge key={index} variant="outline" className="text-xs">
+                              {className}
+                            </Badge>
+                          ))
+                        ) : announcement.target_classes && announcement.target_classes.length > 0 ? (
+                          <Badge variant="outline" className="text-xs">
+                            {announcement.target_classes.length} class(es)
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">All Classes</span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="text-sm text-muted-foreground">

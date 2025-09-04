@@ -15,6 +15,13 @@ export interface BirthdayData {
   type: 'student' | 'teacher' | 'staff';
   admissionNumber?: string;
   rollNumber?: string;
+  classDivision?: {
+    id: string;
+    name: string;
+    division: string;
+    level: string;
+    sequence_number: number;
+  };
   academicRecords?: Array<{
     roll_number: string;
     class_division: {
@@ -55,18 +62,19 @@ export const useBirthdays = () => {
   const convertStudentToBirthdayData = useCallback((student: BirthdayStudent): BirthdayData => {
     console.log('Converting student:', student);
     console.log('Academic records:', student.student_academic_records);
-    
+    console.log('Class division:', student.class_division);
+
     const today = new Date();
     const birthDate = new Date(student.date_of_birth);
     const nextBirthday = new Date(today.getFullYear(), birthDate.getMonth(), birthDate.getDate());
-    
+
     // If this year's birthday has passed, calculate for next year
     if (nextBirthday < today) {
       nextBirthday.setFullYear(today.getFullYear() + 1);
     }
-    
+
     const daysUntil = Math.ceil((nextBirthday.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    
+
     // Get initials for avatar
     const initials = student.full_name
       .split(' ')
@@ -75,21 +83,40 @@ export const useBirthdays = () => {
       .toUpperCase()
       .slice(0, 2);
 
+    // Build class string - prefer direct class_division, fallback to academic records
+    let classString: string | undefined;
+    let classDivision: BirthdayData['classDivision'];
+
+    if (student.class_division) {
+      // Use direct class_division from new API structure
+      classDivision = student.class_division;
+      classString = `${student.class_division.level} - Sec ${student.class_division.division}`;
+    } else if (student.student_academic_records && student.student_academic_records.length > 0 && student.student_academic_records[0]?.class_division) {
+      // Fallback to academic records structure
+      const record = student.student_academic_records[0];
+      classString = `${record.class_division.level.name} - Section ${record.class_division.division}`;
+    }
+
+    // Get roll number - prefer direct field, fallback to academic records
+    const rollNumber = student.roll_number ||
+      (student.student_academic_records && student.student_academic_records.length > 0
+        ? student.student_academic_records[0]?.roll_number
+        : undefined);
+
     const result = {
       id: student.id,
       name: student.full_name,
-      class: student.student_academic_records && student.student_academic_records.length > 0 && student.student_academic_records[0]?.class_division
-        ? `${student.student_academic_records[0].class_division.level.name} - Section ${student.student_academic_records[0].class_division.division}`
-        : undefined,
+      class: classString,
       date: student.date_of_birth,
       daysUntil,
       avatar: initials,
       type: 'student' as const,
       admissionNumber: student.admission_number,
-      rollNumber: student.student_academic_records && student.student_academic_records.length > 0 ? student.student_academic_records[0]?.roll_number : undefined,
+      rollNumber,
+      classDivision,
       academicRecords: student.student_academic_records
     };
-    
+
     console.log('Converted result:', result);
     return result;
   }, []);

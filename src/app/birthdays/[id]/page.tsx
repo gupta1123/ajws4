@@ -42,7 +42,15 @@ export default function BirthdayDetailsPage({ params }: { params: Promise<{ id: 
             full_name: 'Aarav Patel',
             date_of_birth: '2015-03-15',
             admission_number: '2025001',
+            roll_number: '501',
             status: 'active',
+            class_division: {
+              id: 'mock-class-division-id',
+              name: 'Grade 5 A',
+              division: 'A',
+              level: 'Grade 5',
+              sequence_number: 5
+            },
             student_academic_records: [
               {
                 class_division: {
@@ -148,9 +156,31 @@ export default function BirthdayDetailsPage({ params }: { params: Promise<{ id: 
   };
 
   const age = calculateAge(studentData.date_of_birth);
-  const classInfo = studentData.student_academic_records[0]?.class_division;
-  const className = classInfo ? `${classInfo.level.name} - Section ${classInfo.division}` : 'Not Assigned';
-  const rollNumber = studentData.student_academic_records[0]?.roll_number || 'Not Assigned';
+
+  // Extract class information - prefer new API structure, fallback to old structure
+  let className = 'Not Assigned';
+  let classLevel = 'Not Assigned';
+  let classDivision = 'Not Assigned';
+  let sequenceNumber = 'N/A';
+  let rollNumber = studentData.roll_number || 'Not Assigned';
+
+  if (studentData.class_division) {
+    // New API structure - direct class_division field
+    className = `${studentData.class_division.level} - Sec ${studentData.class_division.division}`;
+    classLevel = studentData.class_division.level;
+    classDivision = studentData.class_division.division;
+    sequenceNumber = studentData.class_division.sequence_number.toString();
+  } else if (studentData.student_academic_records && studentData.student_academic_records.length > 0) {
+    // Old API structure - via academic records
+    const classInfo = studentData.student_academic_records[0].class_division;
+    if (classInfo) {
+      className = `${classInfo.level.name} - Section ${classInfo.division}`;
+      classLevel = classInfo.level.name;
+      classDivision = classInfo.division;
+      sequenceNumber = classInfo.level.sequence_number.toString();
+    }
+    rollNumber = studentData.student_academic_records[0].roll_number || rollNumber;
+  }
 
   return (
     <ProtectedRoute>
@@ -230,15 +260,15 @@ export default function BirthdayDetailsPage({ params }: { params: Promise<{ id: 
                 <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-gray-500">Class Level</p>
-                    <p className="font-medium">{classInfo?.level.name || 'Not Assigned'}</p>
+                    <p className="font-medium">{classLevel}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Division</p>
-                    <p className="font-medium">{classInfo?.division || 'Not Assigned'}</p>
+                    <p className="font-medium">{classDivision}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Sequence Number</p>
-                    <p className="font-medium">{classInfo?.level.sequence_number || 'N/A'}</p>
+                    <p className="font-medium">{sequenceNumber}</p>
                   </div>
                 </CardContent>
               </Card>

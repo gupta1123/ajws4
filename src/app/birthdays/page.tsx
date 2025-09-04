@@ -63,9 +63,17 @@ const BirthdayCard = ({
     }
   };
 
-  // Extract grade and division from academic records or class string
+  // Extract grade and division from classDivision, academic records, or class string
   const getGradeAndDivision = () => {
-    // First try to get from academicRecords
+    // First try to get from direct classDivision (new API structure)
+    if (birthday.classDivision) {
+      return {
+        grade: birthday.classDivision.level,
+        division: birthday.classDivision.division
+      };
+    }
+
+    // Fallback to academicRecords (old API structure)
     if (birthday.academicRecords && birthday.academicRecords.length > 0) {
       const record = birthday.academicRecords[0];
       if (record.class_division) {
@@ -77,19 +85,19 @@ const BirthdayCard = ({
         };
       }
     }
-    
-    // Fallback to parsing from class string
+
+    // Final fallback to parsing from class string
     if (birthday.class) {
       // Expected format: "Grade X - Section Y" or "Grade X Section Y"
       const gradeMatch = birthday.class.match(/Grade\s+(\w+)/i);
       const divisionMatch = birthday.class.match(/Section\s+([A-Z])/i) || birthday.class.match(/([A-Z])$/);
-      
+
       return {
         grade: gradeMatch ? gradeMatch[1] : null,
         division: divisionMatch ? divisionMatch[1] : null
       };
     }
-    
+
     return { grade: null, division: null };
   };
 

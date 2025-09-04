@@ -2,13 +2,23 @@
 
 import { apiClient, ApiResponse, ApiErrorResponse, ApiResponseWithCache } from './client';
 
+export interface ClassDivision {
+  id: string;
+  name: string;
+  division: string;
+  level: string;
+  sequence_number: number;
+}
+
 export interface BirthdayStudent {
   id: string;
   full_name: string;
   date_of_birth: string;
   admission_number: string;
-  status: string;
-  student_academic_records: Array<{
+  roll_number?: string;
+  status?: string;
+  class_division?: ClassDivision;
+  student_academic_records?: Array<{
     class_division: {
       division: string;
       level: {
