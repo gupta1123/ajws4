@@ -11,13 +11,15 @@ import { Badge } from '@/components/ui/badge';
 interface StartNewChatAdminModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onTeacherSelected: (teacher: Teacher) => void;
+  onTeacherSelected: (teacher: Teacher & { user_id?: string }) => void;
 }
+
+type ExtendedTeacher = Teacher & { user_id?: string };
 
 export function StartNewChatAdminModal({ open, onOpenChange, onTeacherSelected }: StartNewChatAdminModalProps) {
   const { token } = useAuth();
-  const [teachers, setTeachers] = useState<Teacher[]>([]);
-  const [filteredTeachers, setFilteredTeachers] = useState<Teacher[]>([]);
+  const [teachers, setTeachers] = useState<ExtendedTeacher[]>([]);
+  const [filteredTeachers, setFilteredTeachers] = useState<ExtendedTeacher[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,12 +31,25 @@ export function StartNewChatAdminModal({ open, onOpenChange, onTeacherSelected }
       setLoading(true);
       setError(null);
 
-      const response = await teachersServices.getTeachersWithAssignments(token);
+      // Fetch assignment-rich list and simple list to obtain user_id
+      const [withAssignments, simple] = await Promise.all([
+        teachersServices.getTeachersWithAssignments(token),
+        teachersServices.getAllTeachers(token)
+      ]);
 
-      if (response.status === 'success' && response.data && 'teachers' in response.data) {
-        const teachersList = response.data.teachers as Teacher[];
-        setTeachers(teachersList);
-        setFilteredTeachers(teachersList);
+      if (
+        withAssignments.status === 'success' && withAssignments.data?.teachers &&
+        simple.status === 'success' && simple.data?.teachers
+      ) {
+        const userIdByTeacherId = new Map(
+          simple.data.teachers.map(t => [t.teacher_id, t.user_id])
+        );
+        const merged: ExtendedTeacher[] = withAssignments.data.teachers.map(t => ({
+          ...t,
+          user_id: userIdByTeacherId.get(t.teacher_id)
+        }));
+        setTeachers(merged);
+        setFilteredTeachers(merged);
       } else {
         throw new Error('Failed to fetch teachers');
       }
@@ -75,7 +90,7 @@ export function StartNewChatAdminModal({ open, onOpenChange, onTeacherSelected }
     }
   }, [searchTerm, teachers]);
 
-  const handleTeacherSelect = (teacher: Teacher) => {
+  const handleTeacherSelect = (teacher: ExtendedTeacher) => {
     onTeacherSelected(teacher);
     onOpenChange(false);
     setSearchTerm('');

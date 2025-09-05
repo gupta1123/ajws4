@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth/context';
 import { Sidebar } from './sidebar';
 import { EnhancedTopbar } from './enhanced-topbar';
 import { useState } from 'react';
+import { usePathname } from 'next/navigation';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -14,9 +15,10 @@ interface AppLayoutProps {
 export function AppLayout({ children }: AppLayoutProps) {
   const { user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const pathname = usePathname();
 
-  // Don't show layout for auth pages
-  if (!user) {
+  // Don't show layout for auth pages or when unauthenticated
+  if (!user || pathname?.startsWith('/login') || pathname?.startsWith('/register')) {
     return <>{children}</>;
   }
 

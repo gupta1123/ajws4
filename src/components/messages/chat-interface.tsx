@@ -252,7 +252,7 @@ const transformApiMessagesToChatMessages = (apiMessages: ApiChatMessage[], user:
 interface ChatInterfaceProps {
   selectedParentId?: string;
   isAdminOrPrincipal?: boolean;
-  chatsData?: { threads?: ChatThread[] };
+  chatsData?: { threads?: any[] };
   refreshKey?: number;
 }
 
@@ -269,12 +269,14 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
   const [chatThreads, setChatThreads] = useState<ChatThread[]>([]);
   const [websocket, setWebsocket] = useState<ChatWebSocket | null>(null);
   const [currentThreadId, setCurrentThreadId] = useState<string | null>(null);
+  const [currentVisibleDate, setCurrentVisibleDate] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [selectingParent, setSelectingParent] = useState(false);
 
   // Hooks for real API data - only fetch messages for teachers, not principals
-  const { messages: apiMessages } = useChatMessages(isAdminOrPrincipal ? null : currentThreadId);
+  const { messages: apiMessages } = useChatMessages(currentThreadId);
 
 
 
@@ -318,6 +320,37 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
     }
   }, [token]);
 
+  // Normalize principal/admin threads into canonical thread shape
+  const normalizePrincipalThreads = useCallback((threads: any[]): ChatThread[] => {
+    return (threads || [])
+      .filter((t) => t?.is_principal_participant === true || t?.badges?.includes_principal === true)
+      .map((t) => {
+        const participants = (t.participants?.all || []).map((p: any) => ({
+          role: p.role,
+          user: { role: p.user?.role, full_name: p.user?.full_name },
+          user_id: p.user_id,
+          last_read_at: p.last_read_at,
+        }));
+        const lastMsg = t.last_message ? [{
+          sender: { full_name: t.last_message.sender?.full_name || '' },
+          content: t.last_message.content || '',
+          created_at: t.last_message.created_at || t.updated_at || t.created_at,
+        }] : [];
+        const id = t.id || t.thread_id;
+        return {
+          id,
+          thread_type: t.thread_type,
+          title: t.title,
+          created_by: t.created_by || '',
+          status: 'active',
+          created_at: t.created_at,
+          updated_at: t.updated_at,
+          participants,
+          last_message: lastMsg as any,
+        } as ChatThread;
+      });
+  }, []);
+
   // Handle principal chats data for admin/principal users
   useEffect(() => {
     if (isAdminOrPrincipal && chatsData) {
@@ -325,9 +358,9 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
       console.log('Chats data:', chatsData);
       console.log('Threads:', chatsData.threads);
 
-      // For admin/principal users, we'll use the same thread-based approach as teachers
-      // The chatsData contains threads that we can transform directly
-      const transformedContacts = transformThreadsToContacts(chatsData.threads || [], user);
+      // Normalize principal/admin threads and transform to contacts
+      const normalizedThreads = normalizePrincipalThreads(chatsData.threads || []);
+      const transformedContacts = transformThreadsToContacts(normalizedThreads, user);
       console.log('Transformed contacts:', transformedContacts);
 
       const sortedContacts = sortContacts(transformedContacts);
@@ -349,53 +382,33 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
       // If it's a principal but no data yet, show loading
       setLoading(true);
     }
-  }, [isAdminOrPrincipal, chatsData, user, activeChat]);
+  }, [isAdminOrPrincipal, chatsData, user, activeChat, normalizePrincipalThreads]);
 
-  // Handle API messages when thread changes
+  // Handle API messages when thread changes (all roles)
   useEffect(() => {
     console.log('=== API MESSAGES UPDATED ===');
     console.log('API Messages count:', apiMessages.length);
     console.log('Current Thread ID:', currentThreadId);
     console.log('Is Admin/Principal:', isAdminOrPrincipal);
     console.log('User:', user);
-
-    if (isAdminOrPrincipal && currentThreadId && chatsData) {
-      // For principals, try to load messages from the thread data
-      console.log('Principal chats - loading messages from thread data');
-      const currentThread = chatsData.threads?.find(thread => thread.id === currentThreadId);
-      if (currentThread && currentThread.last_message && currentThread.last_message.length > 0) {
-        // Transform the last messages from the thread data
-        const transformedMessages = currentThread.last_message.map((msg: {
-          sender: { full_name: string };
-          content: string;
-          created_at: string;
-        }) => ({
-          id: `${currentThread.id}-${Date.now()}-${Math.random()}`,
-          senderId: msg.sender.full_name === user?.full_name ? 'me' : 'other',
-          senderName: msg.sender.full_name,
-          content: msg.content,
-          timestamp: msg.created_at,
-          status: 'read' as const,
-          isOwn: msg.sender.full_name === user?.full_name,
-          created_at: msg.created_at
-        }));
-        console.log('Loaded messages from thread data:', transformedMessages);
-        setMessages(transformedMessages);
-      } else {
-        console.log('No messages found in thread data, clearing messages');
-        setMessages([]);
-      }
-    } else if (apiMessages.length > 0) {
+    if (apiMessages.length > 0) {
       // For teachers, use the fetched messages
       const transformedMessages = transformApiMessagesToChatMessages(apiMessages, user);
       console.log('Transformed messages:', transformedMessages);
       setMessages(transformedMessages);
       console.log('Messages state updated with', transformedMessages.length, 'messages');
+      
+      // Set the current visible date to the latest message date
+      if (transformedMessages.length > 0) {
+        const latestMessage = transformedMessages[transformedMessages.length - 1];
+        setCurrentVisibleDate(latestMessage.created_at || latestMessage.timestamp);
+      }
     } else {
       console.log('No API messages, clearing messages array');
       setMessages([]);
+      setCurrentVisibleDate(null);
     }
-  }, [apiMessages, user, currentThreadId, isAdminOrPrincipal, chatsData]);
+  }, [apiMessages, user, currentThreadId, isAdminOrPrincipal]);
 
   // Fetch teacher-linked parents data (only for teachers)
   const fetchParents = useCallback(async () => {
@@ -537,11 +550,11 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
     };
   }, [selectedParentId]);
 
-  // Auto-select parent chat when selectedParentId is provided
+  // Auto-select chat when selectedParentId is provided
   useEffect(() => {
     if (selectedParentId) {
-      console.log('=== PARENT SELECTION START ===');
-      console.log('Selected Parent ID:', selectedParentId);
+      console.log('=== SELECTION START ===');
+      console.log('Selected ID:', selectedParentId);
       console.log('Available contacts:', contacts.length);
       console.log('Contact details:', contacts.map((c: ChatContact) => ({
         id: c.id,
@@ -555,7 +568,7 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
         .filter((c: ChatContact) => c.parentData)
         .map((c: ChatContact) => c.parentData?.parent_id);
       console.log('All available parent IDs:', allParentIds);
-      console.log('Looking for parent ID:', selectedParentId);
+      console.log('Looking for selected ID:', selectedParentId);
       console.log('Parent ID found in list:', allParentIds.includes(selectedParentId));
       
       setSelectingParent(true);
@@ -573,9 +586,15 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
       
       // Add a small delay to ensure contacts are properly processed
       setTimeout(() => {
-        const selectedContact = contacts.find(contact => 
+        let selectedContact = contacts.find(contact => 
           contact.parentData?.parent_id === selectedParentId
         );
+        if (!selectedContact && isAdminOrPrincipal) {
+          // For admin/principal allow selecting by thread ID or teacher ID
+          selectedContact = contacts.find(contact =>
+            contact.threadData?.id === selectedParentId || contact.teacherData?.teacher_id === selectedParentId
+          ) as ChatContact | undefined;
+        }
         
         if (selectedContact) {
           console.log('✅ Found selected contact:', selectedContact.name);
@@ -593,8 +612,8 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
             }
           }, 100);
         } else {
-          console.log('❌ Selected parent not found in contacts:', selectedParentId);
-          console.log('Available parent IDs:', contacts.filter(c => c.parentData).map(c => c.parentData?.parent_id));
+          console.log('❌ Selected contact not found in contacts:', selectedParentId);
+          console.log('Available IDs:', contacts.map(c => c.threadData?.id || c.parentData?.parent_id || c.teacherData?.teacher_id));
           // If the parent is not found, it might be because contacts are still loading
           // We'll let the contacts loading effect handle this
         }
@@ -613,9 +632,12 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
       console.log('Active chat:', activeChat);
       
       // Check if we need to retry the selection
-      const selectedContact = contacts.find(contact => 
-        contact.parentData?.parent_id === selectedParentId
-      );
+      let selectedContact = contacts.find(contact => contact.parentData?.parent_id === selectedParentId);
+      if (!selectedContact && isAdminOrPrincipal) {
+        selectedContact = contacts.find(contact =>
+          contact.threadData?.id === selectedParentId || contact.teacherData?.teacher_id === selectedParentId
+        );
+      }
       
       if (selectedContact && !activeChat) {
         console.log('✅ Retry successful - Found selected contact:', selectedContact.name);
@@ -823,8 +845,63 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Handle scroll to update current visible date
+  const handleScroll = useCallback(() => {
+    if (!messagesContainerRef.current || messages.length === 0) return;
+
+    const container = messagesContainerRef.current;
+    const containerRect = container.getBoundingClientRect();
+    const containerTop = containerRect.top;
+    const containerHeight = containerRect.height;
+    
+    // Find the date header that's currently most visible
+    const dateHeaders = container.querySelectorAll('[data-date-header]');
+    let mostVisibleDate = null;
+    let minDistance = Infinity;
+
+    dateHeaders.forEach((header) => {
+      const headerRect = header.getBoundingClientRect();
+      const headerTop = headerRect.top - containerTop;
+      const headerBottom = headerRect.bottom - containerTop;
+      
+      // Check if header is visible in the container
+      if (headerTop < containerHeight && headerBottom > 0) {
+        const distance = Math.abs(headerTop);
+        if (distance < minDistance) {
+          minDistance = distance;
+          mostVisibleDate = header.getAttribute('data-date');
+        }
+      }
+    });
+
+    if (mostVisibleDate && mostVisibleDate !== currentVisibleDate) {
+      setCurrentVisibleDate(mostVisibleDate);
+    }
+  }, [messages, currentVisibleDate]);
+
+  // Add scroll listener
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (container) {
+      container.addEventListener('scroll', handleScroll);
+      // Initial check
+      handleScroll();
+      
+      return () => {
+        container.removeEventListener('scroll', handleScroll);
+      };
+    }
+  }, [handleScroll]);
+
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !activeChat || !token) return;
+    if (!newMessage.trim() || !activeChat || !token) {
+      console.log('Cannot send message - missing requirements:', {
+        hasMessage: !!newMessage.trim(),
+        hasActiveChat: !!activeChat,
+        hasToken: !!token
+      });
+      return;
+    }
 
     try {
       let threadId = currentThreadId;
@@ -1018,15 +1095,54 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
             content: newMessage
           };
           
-          const response = await sendMessage(payload, token);
-          
-          if (response instanceof Blob) {
-            console.error('Unexpected Blob response');
+          // Validate payload before sending
+          if (!payload.thread_id || !payload.content) {
+            console.error('Invalid payload:', payload);
+            setError('Invalid message data');
             return;
           }
           
+          console.log('Sending message with payload:', payload);
+          console.log('Using token:', token ? 'Token present' : 'No token');
+          
+          const response = await sendMessage(payload, token);
+          
+          console.log('Send message response:', response);
+          console.log('Response type:', typeof response);
+          console.log('Response instanceof Blob:', response instanceof Blob);
+          
+          if (response instanceof Blob) {
+            console.error('Unexpected Blob response from sendMessage');
+            setError('Unexpected response format');
+            return;
+          }
+          
+          // Check if response is valid
+          if (!response || typeof response !== 'object') {
+            console.error('Invalid response format:', response);
+            setError('Invalid response from server');
+            return;
+          }
+          
+          // Check for error status
+          if (response.status === 'error') {
+            const errorResponse = response as any;
+            console.error('API Error:', {
+              status: errorResponse.status,
+              message: errorResponse.message,
+              statusCode: errorResponse.statusCode,
+              error: errorResponse.error,
+              details: errorResponse.details
+            });
+            setError(errorResponse.message || 'Failed to send message');
+            return;
+          }
+          
+          // Check for success status
           if (response.status === 'success' && 'data' in response && response.data) {
             const messageData = response.data as unknown as { id: string; sender_id: string; sender: { full_name: string }; content: string; created_at: string; status: string };
+            
+            console.log('Message sent successfully:', messageData);
             
             // Add the sent message to the messages array
             const message: ChatMessage = {
@@ -1042,18 +1158,30 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
             
             setMessages(prev => [...prev, message]);
             setNewMessage('');
+            setError(null); // Clear any previous errors
             
             // Also send via WebSocket if available
             if (websocket) {
               websocket.sendMessage(threadId, newMessage);
             }
           } else {
-            console.error('Failed to send message:', response);
-            setError('Failed to send message');
+            console.error('Unexpected response structure:', {
+              hasStatus: 'status' in response,
+              status: response.status,
+              hasData: 'data' in response,
+              data: 'data' in response ? (response as any).data : undefined,
+              responseKeys: Object.keys(response)
+            });
+            setError('Unexpected response format from server');
           }
         } catch (error) {
-          console.error('Error sending message:', error);
-          setError('Failed to send message');
+          console.error('Exception in sendMessage:', error);
+          console.error('Error details:', {
+            name: error instanceof Error ? error.name : 'Unknown',
+            message: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined
+          });
+          setError('Network error: Failed to send message');
         }
       }
     } catch (error) {
@@ -1098,12 +1226,12 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
   };
 
   return (
-    <div className="flex h-[calc(100vh-200px)] border rounded-lg overflow-hidden bg-card">
+    <div className="flex h-[calc(100vh-8rem)] min-h-[560px] border rounded-lg overflow-hidden bg-card">
       {/* Contacts List */}
-      <div className="w-1/3 border-r flex flex-col bg-card">
+      <div className="w-80 flex-shrink-0 border-r flex flex-col bg-card">
 
         
-        <div className="p-4 border-b">
+        <div className="p-3 border-b shrink-0">
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
@@ -1115,7 +1243,7 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
           </div>
         </div>
         
-        <div className="flex-grow overflow-y-auto">
+        <div className="flex-1 overflow-y-auto min-h-0">
           {loading ? (
             <div className="p-4 text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
@@ -1229,7 +1357,7 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
       </div>
       
     
-      <div className="flex-grow flex flex-col bg-card">
+      <div className="flex-1 min-w-0 flex flex-col bg-card">
         {(() => {
           console.log('=== CHAT AREA RENDER ===');
           console.log('ActiveChat:', activeChat);
@@ -1243,7 +1371,7 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
               console.log('=== RENDERING CHAT FOR ===', activeChat.name);
               return null;
             })()}
-            <div className="px-3 py-2 border-b flex items-center justify-between">
+            <div className="px-4 py-3 border-b flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <div className="relative">
                   <div className="w-8 h-8 rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center">
@@ -1298,7 +1426,7 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
             
        
             {error && (
-              <div className="p-4 bg-red-50 border-l-4 border-red-400">
+              <div className="p-3 bg-red-50 border-l-4 border-red-400 shrink-0">
                 <div className="flex">
                   <div className="flex-shrink-0">
                     <AlertCircle className="h-5 w-5 text-red-400" />
@@ -1313,7 +1441,7 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
 
 
    
-            <div className="flex-grow flex flex-col">
+            <div className="flex-1 min-h-0 flex flex-col">
               {selectingParent ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center">
@@ -1322,75 +1450,127 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
                   </div>
                 </div>
               ) : (
-                <div className="flex-grow flex flex-col justify-end p-2 space-y-2">
-                  {messages.map((message, index) => {
-                    const showDateHeader = index === 0 || 
-                      (index > 0 && !isSameDay(message.created_at || message.timestamp, messages[index - 1].created_at || messages[index - 1].timestamp));
-                    
-                    return (
-                      <div key={message.id}>
+                <>
+                  {/* Sticky Date Header at Top */}
+                  {currentVisibleDate && (
+                    <div className="sticky top-0 z-30 flex justify-center py-2 bg-card/95 backdrop-blur-sm border-b border-border/50">
+                      <div className="text-xs px-3 py-1.5 rounded-full bg-primary/10 text-primary font-medium shadow-sm">
+                        {getDateLabel(currentVisibleDate)}
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-1 relative">
+                    {messages.map((message, index) => {
+                      const showDateHeader = index === 0 || 
+                        (index > 0 && !isSameDay(message.created_at || message.timestamp, messages[index - 1].created_at || messages[index - 1].timestamp));
                       
-                        {showDateHeader && (
-                          <div className="flex justify-center mb-2">
-                            <div className="bg-muted/30 text-muted-foreground text-xs px-2 py-0.5 rounded">
-                              {getDateLabel(message.created_at || message.timestamp)}
+                      return (
+                        <div key={message.id}>
+                        
+                          {showDateHeader && (
+                            <div 
+                              className="sticky top-4 z-20 flex justify-center my-4"
+                              data-date-header
+                              data-date={message.created_at || message.timestamp}
+                            >
+                              <div className="text-xs px-3 py-1.5 rounded-full bg-muted/90 text-muted-foreground shadow-md backdrop-blur-md border border-border/50">
+                                {getDateLabel(message.created_at || message.timestamp)}
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          )}
                         
              
-                        <div className={`flex ${message.isOwn ? 'justify-end' : 'justify-start'}`}>
-                          <div
-                            className={`max-w-lg px-3 py-1 rounded ${
-                              message.isOwn
-                                ? 'bg-primary text-primary-foreground'
-                                : 'bg-muted text-foreground'
-                            }`}
-                          >
-                            {!message.isOwn && (
-                              <div className="font-medium text-xs mb-0.5 opacity-75">
-                                {message.senderName}
+                        <div className={`flex ${message.isOwn ? 'justify-end' : 'justify-start'} mb-3`}>
+                          <div className={`flex items-end gap-2 max-w-[85%] ${message.isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
+                            {/* Avatar for group chats (others' messages only) */}
+                            {!message.isOwn && activeChat?.isGroup && (
+                              <div
+                                className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium select-none flex-shrink-0"
+                                style={{
+                                  backgroundColor: `hsl(${(Array.from(message.senderName).reduce((a,c)=>a+c.charCodeAt(0),0)%360)}, 80%, 90%)`,
+                                  color: `hsl(${(Array.from(message.senderName).reduce((a,c)=>a+c.charCodeAt(0),0)%360)}, 70%, 35%)`
+                                }}
+                                aria-hidden
+                              >
+                                {message.senderName?.split(' ').map(s=>s[0]).join('').slice(0,2).toUpperCase()}
                               </div>
                             )}
-                            <p className="text-sm">{message.content}</p>
-                            <div className={`flex items-center justify-end gap-1 mt-0.5 text-xs opacity-70`}>
-                              <span>{formatTime(message.created_at || message.timestamp)}</span>
-                              {message.isOwn && getStatusIcon(message.status)}
+
+                            <div className="flex flex-col max-w-full">
+                              {/* Sender name for group chats */}
+                              {!message.isOwn && activeChat?.isGroup && (
+                                <div
+                                  className="text-xs font-medium mb-1 px-1"
+                                  style={{
+                                    color: `hsl(${(Array.from(message.senderName).reduce((a,c)=>a+c.charCodeAt(0),0)%360)}, 70%, 40%)`
+                                  }}
+                                >
+                                  {message.senderName}
+                                </div>
+                              )}
+                              
+                              {/* Message bubble */}
+                              <div
+                                className={`relative px-4 py-2.5 leading-relaxed text-sm break-words shadow-sm
+                                  ${message.isOwn
+                                    ? 'bg-primary text-primary-foreground rounded-2xl rounded-br-md'
+                                    : 'bg-muted text-foreground rounded-2xl rounded-bl-md'}
+                                `}
+                                style={{
+                                  maxWidth: '100%',
+                                  wordWrap: 'break-word',
+                                  overflowWrap: 'break-word'
+                                }}
+                              >
+                                <p className="whitespace-pre-wrap break-words leading-relaxed">{message.content}</p>
+                                
+                                {/* Timestamp and status */}
+                                <div className={`flex items-center gap-1 mt-1.5 text-xs opacity-75 ${message.isOwn ? 'justify-end' : 'justify-start'}`}>
+                                  <span className="text-xs">{formatTime(message.created_at || message.timestamp)}</span>
+                                  {message.isOwn && (
+                                    <div className="ml-1">
+                                      {getStatusIcon(message.status)}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </div>
                       </div>
                     );
-                  })}
-                  <div ref={messagesEndRef} />
-                </div>
+                                      })}
+                    <div ref={messagesEndRef} />
+                  </div>
+                </>
               )}
             </div>
             
      
-            <div className="px-3 py-2 border-t">
+            <div className="px-3 py-2 border-t shrink-0">
               <div className="flex items-center gap-2">
                 <Input
                   placeholder={selectingParent ? "Loading chat..." : "Type a message..."}
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   onKeyDown={handleKeyPress}
-                  className="flex-grow h-8 text-sm"
+                  className="flex-grow h-10 text-sm"
                   disabled={selectingParent}
                 />
                 <Button
                   size="sm"
                   onClick={handleSendMessage}
                   disabled={!newMessage.trim() || selectingParent}
-                  className="h-8 w-8 p-0"
+                  className="h-10 w-10 p-0"
                 >
-                  <Send className="h-3 w-3" />
+                  <Send className="h-4 w-4" />
                 </Button>
               </div>
             </div>
           </>
         ) : (
-          <div className="flex-grow flex items-center justify-center">
+          <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               {selectingParent ? (
                 <>

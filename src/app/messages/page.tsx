@@ -8,6 +8,7 @@ import { StartNewChatModal } from '@/components/messages/start-new-chat-modal';
 import { StartNewChatAdminModal } from '@/components/messages/start-new-chat-admin-modal';
 import { StartChatTeacherModal } from '@/components/messages/start-chat-teacher-modal';
 import { useToast } from '@/hooks/use-toast';
+import { checkExistingThread, startConversation } from '@/lib/api/messages';
 import { useAuth } from '@/lib/auth/context';
 import { usePrincipalChats } from '@/hooks/use-principal-chats';
 import { useClassDivisions } from '@/hooks/use-class-divisions';
@@ -58,21 +59,57 @@ export default function MessagesPage() {
     console.log('Parent selected for chat:', parent);
   };
 
-  const handleTeacherSelected = (teacher: { teacher_id: string; full_name: string }) => {
+  const handleTeacherSelected = async (teacher: { teacher_id: string; full_name: string; user_id?: string }) => {
     // Close the modal
     setIsStartNewChatAdminModalOpen(false);
-    
-    // Set the selected teacher ID to open their chat
-    setSelectedParentId(teacher.teacher_id);
-    
-    // Show success toast
-    toast({
-      title: "Chat Started!",
-      description: `Chat opened with ${teacher.full_name}`,
-      variant: "success"
-    });
-    
-    console.log('Teacher selected for chat:', teacher);
+
+    try {
+      // We need a user_id to start/check a conversation
+      if (!user?.id) throw new Error('Missing current user');
+      if (!teacher.user_id) throw new Error('Selected teacher is missing user ID');
+
+      // Check if a thread already exists between admin/principal and the teacher
+
+      const checkResp = await checkExistingThread({
+        participants: [user.id, teacher.user_id],
+        thread_type: 'direct',
+      }, undefined);
+
+      let threadId: string | null = null;
+      if (checkResp && typeof checkResp === 'object' && 'status' in checkResp && checkResp.status === 'success' && 'data' in checkResp && checkResp.data) {
+        const data = checkResp.data as unknown as { exists: boolean; thread?: { id: string } };
+        if (data.exists && data.thread?.id) {
+          threadId = data.thread.id;
+        }
+      }
+
+      if (!threadId) {
+        // Create a new conversation
+        const startResp = await startConversation({
+          participants: [teacher.user_id],
+          message_content: `Hello ${teacher.full_name}`,
+          thread_type: 'direct',
+          title: `Chat with ${teacher.full_name}`,
+        }, undefined);
+
+        if (startResp && typeof startResp === 'object' && 'status' in startResp && startResp.status === 'success' && 'data' in startResp && startResp.data) {
+          const data = startResp.data as unknown as { thread: { id: string } };
+          threadId = data.thread.id;
+        }
+      }
+
+      if (threadId) {
+        // Trigger refresh and select the created/found thread
+        setRefreshKey(prev => prev + 1);
+        setSelectedParentId(threadId);
+        toast({ title: 'Chat Ready', description: `Opening conversation with ${teacher.full_name}` });
+      } else {
+        throw new Error('Failed to open or create chat');
+      }
+    } catch (err) {
+      console.error('Failed to start/open teacher chat:', err);
+      toast({ title: 'Could not start chat', variant: 'destructive', description: err instanceof Error ? err.message : 'Unknown error' });
+    }
   };
 
   const handleTeacherChatStarted = (threadId: string, isExisting: boolean) => {
@@ -351,6 +388,7 @@ export default function MessagesPage() {
       <ChatInterface
         selectedParentId={selectedParentId || undefined}
         isAdminOrPrincipal={isAdminOrPrincipal}
+        chatsData={chatsData || undefined}
         refreshKey={refreshKey}
       />
 

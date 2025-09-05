@@ -15,7 +15,7 @@ export function usePrincipalChats() {
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<PrincipalChatsParams>({
     chat_type: 'all',
-    includes_me: 'all',
+    includes_me: 'yes',
     page: 1,
     limit: 20,
     start_date: undefined,

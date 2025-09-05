@@ -31,6 +31,19 @@ const UpcomingBirthdays = dynamic(() => import('@/components/dashboard/upcoming-
   loading: () => <div className="h-32 bg-muted animate-pulse rounded-lg" />
 });
 
+// Teacher widgets
+const TodayScheduleCard = dynamic(() => import('@/components/dashboard/teacher/today-schedule-card').then(mod => mod.TodayScheduleCard), {
+  loading: () => <div className="h-40 bg-muted animate-pulse rounded-lg" />
+});
+const AttendanceQuickCard = dynamic(() => import('@/components/dashboard/teacher/attendance-quick-card').then(mod => mod.AttendanceQuickCard), {
+  loading: () => <div className="h-32 bg-muted animate-pulse rounded-lg" />
+});
+const WorkItemsCard = dynamic(() => import('@/components/dashboard/teacher/work-items-card').then(mod => mod.WorkItemsCard), {
+  loading: () => <div className="h-40 bg-muted animate-pulse rounded-lg" />
+});
+const MessagesSummaryCard = dynamic(() => import('@/components/dashboard/teacher/messages-summary-card').then(mod => mod.MessagesSummaryCard), {
+  loading: () => <div className="h-32 bg-muted animate-pulse rounded-lg" />
+});
 
 
 const DashboardPage = () => {
@@ -66,23 +79,40 @@ const DashboardPage = () => {
         <WelcomeBanner />
         
         {user?.role === 'teacher' ? (
-          <div className="grid grid-cols-1 gap-6">
-            <div className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left: high-priority actions */}
+            <div className="lg:col-span-2 space-y-6">
+              <Suspense fallback={<div className="h-40 bg-muted animate-pulse rounded-lg" />}>
+                <TodayScheduleCard />
+              </Suspense>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Suspense fallback={<div className="h-32 bg-muted animate-pulse rounded-lg" />}>
+                  <AttendanceQuickCard />
+                </Suspense>
+                <Suspense fallback={<div className="h-40 bg-muted animate-pulse rounded-lg" />}>
+                  <WorkItemsCard />
+                </Suspense>
+              </div>
               <Suspense fallback={<div className="h-32 bg-muted animate-pulse rounded-lg" />}>
                 <ClassOverviewCard />
               </Suspense>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <ErrorBoundary fallback={ApiErrorFallback}>
-                  <Suspense fallback={<div className="h-32 bg-muted animate-pulse rounded-lg" />}>
-                    <UpcomingEvents />
-                  </Suspense>
-                </ErrorBoundary>
-                <ErrorBoundary fallback={ApiErrorFallback}>
-                  <Suspense fallback={<div className="h-32 bg-muted animate-pulse rounded-lg" />}>
-                    <UpcomingBirthdays />
-                  </Suspense>
-                </ErrorBoundary>
-              </div>
+            </div>
+
+            {/* Right: awareness */}
+            <div className="space-y-6">
+              <Suspense fallback={<div className="h-32 bg-muted animate-pulse rounded-lg" />}>
+                <MessagesSummaryCard />
+              </Suspense>
+              <ErrorBoundary fallback={ApiErrorFallback}>
+                <Suspense fallback={<div className="h-32 bg-muted animate-pulse rounded-lg" />}>
+                  <UpcomingEvents />
+                </Suspense>
+              </ErrorBoundary>
+              <ErrorBoundary fallback={ApiErrorFallback}>
+                <Suspense fallback={<div className="h-32 bg-muted animate-pulse rounded-lg" />}>
+                  <UpcomingBirthdays />
+                </Suspense>
+              </ErrorBoundary>
             </div>
           </div>
         ) : user?.role === 'admin' || user?.role === 'principal' ? (
