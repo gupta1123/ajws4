@@ -18,7 +18,7 @@ function getTodayIndex(): number {
 }
 
 export function TodayScheduleCard() {
-  const { token, user } = useAuth();
+  const { token } = useAuth();
   const { teacherData } = useTeacher();
   const [entries, setEntries] = useState<TimetableEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,7 +43,7 @@ export function TodayScheduleCard() {
         }
         dayEntries.sort((a, b) => a.period_number - b.period_number);
         if (mounted) setEntries(dayEntries);
-      } catch (e) {
+      } catch {
         if (mounted) setEntries([]);
       } finally {
         if (mounted) setLoading(false);

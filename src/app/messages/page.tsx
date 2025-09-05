@@ -108,7 +108,7 @@ export default function MessagesPage() {
       }
     } catch (err) {
       console.error('Failed to start/open teacher chat:', err);
-      toast({ title: 'Could not start chat', variant: 'destructive', description: err instanceof Error ? err.message : 'Unknown error' });
+      toast({ title: 'Could not start chat', variant: 'error', description: err instanceof Error ? err.message : 'Unknown error' });
     }
   };
 

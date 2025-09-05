@@ -34,7 +34,7 @@ export function AttendanceQuickCard() {
         const results = await Promise.all(selected.map(async (c) => {
           const resp = await attendanceApi.getAttendanceStatus(c.class_division_id, today, token);
           if (resp && 'status' in resp && resp.status === 'success') {
-            const recs = (resp as any).data?.student_records || [];
+            const recs = (resp as { data?: { student_records?: unknown[] } }).data?.student_records || [];
             const isMarked = Array.isArray(recs) && recs.length > 0;
             return isMarked ? null : { id: c.class_division_id, name: `${c.class_name} ${c.division}` };
           }
@@ -42,7 +42,7 @@ export function AttendanceQuickCard() {
         }));
         const list = results.filter(Boolean) as Array<{ id: string; name: string }>;
         if (mounted) setPending(list);
-      } catch (e) {
+      } catch {
         if (mounted) setPending([]);
       } finally {
         if (mounted) setLoading(false);

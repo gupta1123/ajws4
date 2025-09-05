@@ -24,7 +24,7 @@ export function MessagesSummaryCard() {
         const resp = await chatThreadsServices.getChatThreads(token);
         const list = resp.data?.threads || [];
         if (mounted) setThreads(list.slice(0, 3));
-      } catch (e) {
+      } catch {
         if (mounted) setThreads([]);
       } finally {
         if (mounted) setLoading(false);

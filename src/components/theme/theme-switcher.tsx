@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/sheet';
 
 export function ThemeSwitcher() {
-  const { theme, colorScheme, toggleTheme, setTheme, setColorScheme } = useTheme();
+  const { theme, colorScheme, setTheme, setColorScheme } = useTheme();
 
   const colorSchemes = [
     { id: 'default', name: 'Default (Indigo)' },
@@ -35,14 +35,6 @@ export function ThemeSwitcher() {
     { id: 'beige', name: 'Beige Mode', icon: Palette, description: 'Warm and professional look' },
   ];
 
-  const getCurrentThemeIcon = () => {
-    const currentTheme = themes.find(t => t.id === theme);
-    if (currentTheme) {
-      const Icon = currentTheme.icon;
-      return <Icon className="h-4 w-4" />;
-    }
-    return <Sun className="h-4 w-4" />;
-  };
 
   return (
     <Sheet>

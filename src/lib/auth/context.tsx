@@ -48,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (userData.role !== 'teacher') {
           localStorage.removeItem('teacherData');
         }
-      } catch (error) {
+      } catch {
         // If stored user data is corrupted, clear everything
         console.warn('Corrupted user data in localStorage, clearing...');
         localStorage.removeItem('token');

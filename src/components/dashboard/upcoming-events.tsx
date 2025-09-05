@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Calendar, Clock, MapPin, Users, BookOpen, Clipboard, CheckCircle, XCircle } from 'lucide-react';
+import { Calendar, Clock, Users, BookOpen, Clipboard, CheckCircle, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth/context';
 import { calendarServices } from '@/lib/api';

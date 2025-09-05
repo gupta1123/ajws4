@@ -11,7 +11,7 @@ import { classworkServices } from '@/lib/api/classwork';
 import { BookOpenCheck, ClipboardList, Paperclip } from 'lucide-react';
 import Link from 'next/link';
 
-type HW = { id: string; title: string; due_date?: string; class_division_id?: string; subject?: string };
+type HW = { id: string; title: string; due_date?: string; class_division_id?: string; subject?: string; attachments?: unknown[] };
 type CW = { id: string; summary: string; date?: string; class_division_id?: string; subject?: string };
 
 function fmtDate(d?: string) {
@@ -40,13 +40,13 @@ export function WorkItemsCard() {
           date_from: new Date(today.getTime() - 7 * 86400000).toISOString().slice(0,10)
         });
 
-        const hwList = (hwResp as any)?.data?.homework || [];
-        const cwList = (cwResp as any)?.data?.classwork || [];
+        const hwList = (hwResp as { data?: { homework?: HW[] } })?.data?.homework || [];
+        const cwList = (cwResp as { data?: { classwork?: CW[] } })?.data?.classwork || [];
         if (mounted) {
           setHomework(hwList.slice(0,5));
           setClasswork(cwList.slice(0,5));
         }
-      } catch (e) {
+      } catch {
         if (mounted) { setHomework([]); setClasswork([]); }
       } finally {
         if (mounted) setLoading(false);
@@ -72,7 +72,7 @@ export function WorkItemsCard() {
             <TabsContent value="homework" className="mt-3 space-y-2">
               {homework.length === 0 ? (
                 <div className="text-sm text-muted-foreground">No homework due soon.</div>
-              ) : homework.map((hw: any) => (
+              ) : homework.map((hw: HW) => (
                 <Link key={hw.id} href={`/homework`} className="block border rounded-lg p-3 hover:bg-muted/50">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
@@ -89,7 +89,7 @@ export function WorkItemsCard() {
             <TabsContent value="classwork" className="mt-3 space-y-2">
               {classwork.length === 0 ? (
                 <div className="text-sm text-muted-foreground">No recent classwork.</div>
-              ) : classwork.map((cw: any) => (
+              ) : classwork.map((cw: CW) => (
                 <Link key={cw.id} href={`/classwork`} className="block border rounded-lg p-3 hover:bg-muted/50">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">

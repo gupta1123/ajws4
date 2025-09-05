@@ -66,7 +66,7 @@ export function StartNewChatAdminModal({ open, onOpenChange, onTeacherSelected }
     if (open && token) {
       fetchTeachers();
     }
-  }, [open, token]); // Removed fetchTeachers from dependencies to prevent infinite loop
+  }, [open, token, fetchTeachers]);
 
   // Filter teachers based on search term
   useEffect(() => {

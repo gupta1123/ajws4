@@ -62,18 +62,6 @@ export function StartChatTeacherModal({ open, onOpenChange, onChatStarted }: Sta
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Reset modal state when opened
-  useEffect(() => {
-    if (open) {
-      setStep('classes');
-      setSelectedClass(null);
-      setSelectedParent(null);
-      setSearchTerm('');
-      setError(null);
-      fetchTeacherClasses();
-    }
-  }, [open]);
-
   const fetchTeacherClasses = useCallback(async () => {
     if (!token || !user) return;
 
@@ -112,6 +100,18 @@ export function StartChatTeacherModal({ open, onOpenChange, onChatStarted }: Sta
       setLoading(false);
     }
   }, [token, user]);
+
+  // Reset modal state when opened
+  useEffect(() => {
+    if (open) {
+      setStep('classes');
+      setSelectedClass(null);
+      setSelectedParent(null);
+      setSearchTerm('');
+      setError(null);
+      fetchTeacherClasses();
+    }
+  }, [open, fetchTeacherClasses]);
 
   const fetchDivisionParents = useCallback(async (classDivisionId: string) => {
     if (!token) return;

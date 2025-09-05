@@ -95,7 +95,6 @@ export const fetchTeacherData = async (token: string, setTeacherData?: (data: Te
       throw new Error('Failed to fetch teacher data');
     }
   } catch (err: unknown) {
-    const errorMessage = err instanceof Error ? err.message : 'Failed to fetch teacher data';
     console.error('Error fetching teacher data:', err);
     throw err; // Re-throw to let caller handle
   }
@@ -131,7 +130,7 @@ export function TeacherProvider({ children }: { children: ReactNode }) {
             localStorage.removeItem(TEACHER_DATA_KEY);
             setTeacherData(null);
           }
-        } catch (err) {
+        } catch {
           // Error parsing stored teacher data, clear it
           localStorage.removeItem(TEACHER_DATA_KEY);
           setTeacherData(null);

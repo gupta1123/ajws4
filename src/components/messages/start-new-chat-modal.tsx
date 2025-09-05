@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Search, User } from 'lucide-react';
-import { getTeacherLinkedParents, TeacherLinkedParent } from '@/lib/api/messages';
+import { TeacherLinkedParent } from '@/lib/api/messages';
 import { useAuth } from '@/lib/auth/context';
 
 interface StartNewChatModalProps {
@@ -77,14 +77,14 @@ export function StartNewChatModal({ open, onOpenChange, onParentSelected }: Star
     } finally {
       setLoading(false);
     }
-  }, [token, user?.id]);
+  }, [token]);
 
   // Fetch linked parents when modal opens
   useEffect(() => {
     if (open && token && user?.id) {
       fetchParents();
     }
-  }, [open, token, user?.id]); // Removed fetchParents from dependencies to prevent infinite loop
+  }, [open, token, user?.id, fetchParents]);
 
   // Filter parents based on search term
   useEffect(() => {

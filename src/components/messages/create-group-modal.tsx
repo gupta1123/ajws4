@@ -25,7 +25,6 @@ import {
   X
 } from 'lucide-react';
 import { 
-  getTeacherLinkedParents, 
   TeacherLinkedParent,
   startConversation,
   StartConversationPayload
@@ -86,7 +85,7 @@ export function CreateGroupModal({ open, onOpenChange, onGroupCreated }: CreateG
     if (open && token) {
       fetchLinkedParents();
     }
-  }, [open, token]); // Removed fetchLinkedParents from dependencies to prevent infinite loop
+  }, [open, token, fetchLinkedParents]);
 
   const handleParentToggle = (parentId: string) => {
     setSelectedParents(prev => 

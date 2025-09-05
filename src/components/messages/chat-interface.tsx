@@ -5,7 +5,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { 
   Send, 
   Search, 
@@ -194,8 +193,6 @@ const transformThreadsToContacts = (threads: ChatThread[], user: { id: string } 
       .filter(p => p.user_id !== user?.id)
       .map(p => p.user.full_name);
     
-    // Check if current user is a participant
-    const isParticipant = thread.participants.some(p => p.user_id === user?.id);
     
     // Find teacher data if this is a teacher chat
     const teacherParticipant = thread.participants.find(p => p.user.role === 'teacher');
@@ -252,7 +249,7 @@ const transformApiMessagesToChatMessages = (apiMessages: ApiChatMessage[], user:
 interface ChatInterfaceProps {
   selectedParentId?: string;
   isAdminOrPrincipal?: boolean;
-  chatsData?: { threads?: any[] };
+  chatsData?: { threads?: unknown[] };
   refreshKey?: number;
 }
 
@@ -264,7 +261,6 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
   const [newMessage, setNewMessage] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(!isAdminOrPrincipal); // Only show loading for teachers initially
-  const [loadingGroups, setLoadingGroups] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [chatThreads, setChatThreads] = useState<ChatThread[]>([]);
   const [websocket, setWebsocket] = useState<ChatWebSocket | null>(null);
@@ -321,11 +317,36 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
   }, [token]);
 
   // Normalize principal/admin threads into canonical thread shape
-  const normalizePrincipalThreads = useCallback((threads: any[]): ChatThread[] => {
+  const normalizePrincipalThreads = useCallback((threads: unknown[]): ChatThread[] => {
+    interface PrincipalThread {
+      id?: string;
+      thread_id?: string;
+      thread_type?: string;
+      title?: string;
+      created_by?: string;
+      created_at?: string;
+      updated_at?: string;
+      is_principal_participant?: boolean;
+      badges?: { includes_principal?: boolean };
+      participants?: { all?: PrincipalParticipant[] };
+      last_message?: {
+        sender?: { full_name?: string };
+        content?: string;
+        created_at?: string;
+      };
+    }
+    
+    interface PrincipalParticipant {
+      role?: string;
+      user?: { role?: string; full_name?: string };
+      user_id?: string;
+      last_read_at?: string;
+    }
+    
     return (threads || [])
-      .filter((t) => t?.is_principal_participant === true || t?.badges?.includes_principal === true)
+      .filter((t): t is PrincipalThread => (t as PrincipalThread)?.is_principal_participant === true || (t as PrincipalThread)?.badges?.includes_principal === true)
       .map((t) => {
-        const participants = (t.participants?.all || []).map((p: any) => ({
+        const participants = (t.participants?.all || []).map((p: PrincipalParticipant) => ({
           role: p.role,
           user: { role: p.user?.role, full_name: p.user?.full_name },
           user_id: p.user_id,
@@ -346,7 +367,7 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
           created_at: t.created_at,
           updated_at: t.updated_at,
           participants,
-          last_message: lastMsg as any,
+          last_message: lastMsg as ChatThread['last_message'],
         } as ChatThread;
       });
   }, []);
@@ -469,7 +490,7 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
   useEffect(() => {
     if (isAdminOrPrincipal) return; // Skip for admin/principal users
     fetchParents();
-  }, [isAdminOrPrincipal]); // Removed fetchParents from dependencies to prevent potential infinite loop
+  }, [isAdminOrPrincipal, fetchParents]);
 
   // Fetch chat threads function
   const fetchThreads = useCallback(async (isGroupRefresh = false) => {
@@ -480,9 +501,6 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
 
     try {
       console.log('🔍 Starting fetchThreads, isGroupRefresh:', isGroupRefresh);
-      if (isGroupRefresh) {
-        setLoadingGroups(true);
-      }
 
       const response = await getChatThreads(token);
       console.log('📡 fetchThreads response:', response);
@@ -530,9 +548,7 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
     } catch (error) {
       console.error('Error fetching chat threads:', error);
     } finally {
-      if (isGroupRefresh) {
-        setLoadingGroups(false);
-      }
+      // Cleanup if needed
     }
   }, [token, user, activeChat, selectedParentId]);
 
@@ -541,7 +557,7 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
     if (!isAdminOrPrincipal) {
       fetchThreads();
     }
-  }, [token, user, isAdminOrPrincipal]); // Removed fetchThreads from dependencies to prevent potential infinite loop
+  }, [token, user, isAdminOrPrincipal, fetchThreads]);
 
   // Clean up selecting state when selectedParentId changes or component unmounts
   useEffect(() => {
@@ -619,7 +635,7 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
         }
       }, 100); // Small delay to ensure contacts are ready
     }
-  }, [selectedParentId, contacts]);
+  }, [selectedParentId, contacts, isAdminOrPrincipal]);
 
   // Retry parent selection when contacts finish loading
   useEffect(() => {
@@ -651,7 +667,7 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
         console.log('Active chat exists:', !!activeChat);
       }
     }
-  }, [selectedParentId, contacts, loading, activeChat, selectingParent]);
+  }, [selectedParentId, contacts, loading, activeChat, selectingParent, isAdminOrPrincipal]);
 
   // Refresh threads when refreshKey changes (e.g., after creating new chat)
   useEffect(() => {
@@ -669,7 +685,7 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
       setActiveChat(null);
       console.log('🧹 Cleared activeChat');
     }
-  }, [refreshKey]); // Removed fetchThreads from dependencies to prevent infinite loop
+  }, [refreshKey, fetchThreads]);
 
   // Prevent auto-selection of first contact when we have a selectedParentId
   useEffect(() => {
@@ -1126,7 +1142,7 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
           
           // Check for error status
           if (response.status === 'error') {
-            const errorResponse = response as any;
+            const errorResponse = response as { status: string; message?: string; statusCode?: number; error?: string; details?: unknown };
             console.error('API Error:', {
               status: errorResponse.status,
               message: errorResponse.message,
@@ -1169,7 +1185,7 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
               hasStatus: 'status' in response,
               status: response.status,
               hasData: 'data' in response,
-              data: 'data' in response ? (response as any).data : undefined,
+              data: 'data' in response ? (response as { data: unknown }).data : undefined,
               responseKeys: Object.keys(response)
             });
             setError('Unexpected response format from server');
@@ -1263,7 +1279,7 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
             </div>
           ) : (
             <div className="divide-y">
-              {filteredContacts.map((contact, index) => {
+              {filteredContacts.map((contact) => {
                 return (
                   <div key={contact.id}>
                     <div 
