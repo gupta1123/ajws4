@@ -2,18 +2,19 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, BookOpen, AlertCircle, Calendar, Users, Star, Edit } from 'lucide-react';
+import { ArrowLeft, BookOpen, AlertCircle, Calendar, Users, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth/context';
 import { createAnnouncementsAPI, type Announcement } from '@/lib/api/announcements';
+import { classDivisionsServices } from '@/lib/api/class-divisions';
 
 const announcementTypes = [
   { value: 'notification', label: 'Notification', icon: AlertCircle, description: 'General notifications and updates' },
@@ -30,8 +31,6 @@ const priorities = [
 const targetRoles = [
   { value: 'teacher', label: 'Teachers' },
   { value: 'parent', label: 'Parents' },
-  { value: 'student', label: 'Students' },
-  { value: 'admin', label: 'Administrators' },
 ];
 
 export default function AdminEditAnnouncementPage() {
@@ -42,6 +41,9 @@ export default function AdminEditAnnouncementPage() {
   const [loading, setLoading] = useState(false);
   const [fetchLoading, setFetchLoading] = useState(true);
   const [announcement, setAnnouncement] = useState<Announcement | null>(null);
+  const [scope, setScope] = useState<'school' | 'classes'>('school');
+  const [availableClasses, setAvailableClasses] = useState<Array<{ id: string; division: string; class_name: string; class_level: string; academic_year: string }>>([]);
+  const [classesLoading, setClassesLoading] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -55,7 +57,6 @@ export default function AdminEditAnnouncementPage() {
     publish_time: '09:00',
     expires_date: '',
     expires_time: '17:00',
-    is_featured: false,
   });
 
   const fetchAnnouncement = useCallback(async (id: string) => {
@@ -105,8 +106,8 @@ export default function AdminEditAnnouncementPage() {
         publish_time: publishDate.toTimeString().slice(0, 5),
         expires_date: expiresDate.toISOString().split('T')[0],
         expires_time: expiresDate.toTimeString().slice(0, 5),
-        is_featured: announcement.is_featured,
       });
+      setScope((announcement.target_classes && announcement.target_classes.length > 0) ? 'classes' : 'school');
     }
   }, [announcement]);
 
@@ -141,10 +142,9 @@ export default function AdminEditAnnouncementPage() {
         announcement_type: formData.announcement_type as 'general' | 'notification' | 'circular',
         priority: formData.priority as 'low' | 'medium' | 'high',
         target_roles: formData.target_roles,
-        target_classes: formData.target_classes,
+        target_classes: scope === 'classes' ? formData.target_classes : [],
         publish_at: new Date(`${formData.publish_date}T${formData.publish_time}`).toISOString(),
         expires_at: new Date(`${formData.expires_date}T${formData.expires_time}`).toISOString(),
-        is_featured: formData.is_featured,
       };
 
       const response = await api.editAnnouncement(announcement.id, payload);
@@ -179,10 +179,65 @@ export default function AdminEditAnnouncementPage() {
     }));
   };
 
-  const getTypeIcon = (type: string) => {
-    const typeData = announcementTypes.find(t => t.value === type);
-    return typeData ? typeData.icon : BookOpen;
-  };
+  // Fetch available classes for selection
+  const fetchAvailableClasses = useCallback(async () => {
+    if (!token) return;
+    try {
+      setClassesLoading(true);
+      const result = await classDivisionsServices.getClassDivisions(token);
+      if (result.status === 'success') {
+        const classDetails = await Promise.all(
+          result.data.class_divisions.map(async (classDivision) => {
+            try {
+              const detailResponse = await fetch(
+                `https://ajws-school-ba8ae5e3f955.herokuapp.com/api/students/class/${classDivision.id}/details`,
+                {
+                  method: 'GET',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                  },
+                }
+              );
+              const detailResult = await detailResponse.json();
+              if (detailResult.status === 'success') {
+                return {
+                  id: classDivision.id,
+                  division: detailResult.data.class_division.division,
+                  class_name: detailResult.data.class_division.class_level.name,
+                  class_level: detailResult.data.class_division.class_level.name,
+                  academic_year: detailResult.data.class_division.academic_year.year_name,
+                };
+              }
+            } catch (e) {
+              console.error('Error fetching class details', e);
+            }
+            return null;
+          })
+        );
+        const valid = classDetails.filter((x): x is NonNullable<typeof x> => x !== null);
+        setAvailableClasses(valid);
+      }
+    } finally {
+      setClassesLoading(false);
+    }
+  }, [token]);
+
+  // Fetch classes when needed
+  useEffect(() => {
+    if (scope === 'classes' && availableClasses.length === 0) {
+      fetchAvailableClasses();
+    }
+  }, [scope, availableClasses.length, fetchAvailableClasses]);
+
+  // Clear classes when switching to school-wide
+  useEffect(() => {
+    if (scope === 'school' && formData.target_classes.length > 0) {
+      setFormData(prev => ({ ...prev, target_classes: [] }));
+    }
+  }, [scope]);
+
+  // Removed type preview helper as preview card is no longer shown
 
   if (fetchLoading) {
     return (
@@ -381,6 +436,19 @@ export default function AdminEditAnnouncementPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Scope selection */}
+              <div className="space-y-2">
+                <Label>Scope</Label>
+                <div className="flex gap-2">
+                  <Button type="button" variant={scope === 'school' ? 'default' : 'outline'} size="sm" onClick={() => setScope('school')}>
+                    School-wide
+                  </Button>
+                  <Button type="button" variant={scope === 'classes' ? 'default' : 'outline'} size="sm" onClick={() => setScope('classes')}>
+                    Specific classes
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">Leave classes empty for school-wide; select classes to target specific divisions.</p>
+              </div>
               <div className="space-y-3">
                 <Label>Target Roles *</Label>
                 <div className="flex flex-wrap gap-2">
@@ -400,6 +468,51 @@ export default function AdminEditAnnouncementPage() {
                   Selected: {formData.target_roles.length} role(s)
                 </p>
               </div>
+
+              {/* Class Selection - show when scope is 'classes' */}
+              {scope === 'classes' && (
+                <div className="space-y-3 border-t pt-4">
+                  <Label>Target Classes (Optional)</Label>
+                  {classesLoading ? (
+                    <div className="flex items-center justify-center gap-3 py-4">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                      <span className="text-sm text-muted-foreground">Loading classes...</span>
+                    </div>
+                  ) : availableClasses.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
+                      {availableClasses.map((classItem) => (
+                        <div key={classItem.id} className="flex items-center space-x-2 p-2 border rounded-lg">
+                          <Checkbox
+                            id={`class-${classItem.id}`}
+                            checked={formData.target_classes.includes(classItem.id)}
+                            onCheckedChange={() => setFormData(prev => ({
+                              ...prev,
+                              target_classes: prev.target_classes.includes(classItem.id)
+                                ? prev.target_classes.filter(c => c !== classItem.id)
+                                : [...prev.target_classes, classItem.id]
+                            }))}
+                          />
+                          <Label htmlFor={`class-${classItem.id}`} className="flex-1 cursor-pointer">
+                            <div className="flex flex-col">
+                              <span className="font-medium">
+                                {classItem.class_name} - {classItem.division}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {classItem.academic_year}
+                              </span>
+                            </div>
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground py-4">No classes available</p>
+                  )}
+                  {formData.target_classes.length > 0 && (
+                    <p className="text-sm text-muted-foreground">Selected: {formData.target_classes.length} class(es)</p>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -429,53 +542,6 @@ export default function AdminEditAnnouncementPage() {
               </p>
             </CardContent>
           </Card>
-
-          {/* Type Preview */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                {React.createElement(getTypeIcon(formData.announcement_type), { className: "w-5 h-5" })}
-                Type Preview
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Badge variant="outline">
-                  {announcementTypes.find(t => t.value === formData.announcement_type)?.label}
-                </Badge>
-                <Badge className={priorities.find(p => p.value === formData.priority)?.color}>
-                  {formData.priority.charAt(0).toUpperCase() + formData.priority.slice(1)}
-                </Badge>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {announcementTypes.find(t => t.value === formData.announcement_type)?.description}
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Options */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Options</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="featured"
-                  checked={formData.is_featured}
-                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_featured: checked }))}
-                />
-                <Label htmlFor="featured" className="flex items-center gap-2">
-                  <Star className="w-4 h-4" />
-                  Mark as featured
-                </Label>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Featured announcements will be highlighted and appear at the top of the list.
-              </p>
-            </CardContent>
-          </Card>
-
           {/* Actions */}
           <Card>
             <CardContent className="pt-6">

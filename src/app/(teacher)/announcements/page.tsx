@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Search, AlertCircle, Star, BookOpen, Info, Filter } from 'lucide-react';
+import { Plus, Search, AlertCircle, BookOpen, Info, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -378,9 +378,6 @@ export default function AnnouncementsPage() {
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <span className="font-medium">{announcement.title}</span>
-                        {announcement.is_featured && (
-                          <Star className="w-4 h-4 text-yellow-500 fill-current" />
-                        )}
                       </div>
                     </TableCell>
                     <TableCell>

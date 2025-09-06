@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Save, BookOpen, AlertCircle, Calendar, Users, Star } from 'lucide-react';
+import { ArrowLeft, Save, BookOpen, AlertCircle, Calendar, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -10,7 +10,6 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth/context';
 
@@ -28,8 +27,6 @@ const priorities = [
 const targetRoles = [
   { value: 'teacher', label: 'Teachers' },
   { value: 'parent', label: 'Parents' },
-  { value: 'student', label: 'Students' },
-  { value: 'admin', label: 'Administrators' },
 ];
 
 export default function CreateAnnouncementPage() {
@@ -50,7 +47,6 @@ export default function CreateAnnouncementPage() {
     publish_time: '09:00',
     expires_date: '',
     expires_time: '17:00',
-    is_featured: false,
   });
 
   const handleCreateAnnouncement = async () => {
@@ -121,10 +117,7 @@ export default function CreateAnnouncementPage() {
     }));
   };
 
-  const getTypeIcon = (type: string) => {
-    const typeData = announcementTypes.find(t => t.value === type);
-    return typeData ? typeData.icon : BookOpen;
-  };
+  // Removed type preview helper as preview card is no longer shown
 
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">
@@ -323,52 +316,6 @@ export default function CreateAnnouncementPage() {
 
         {/* Sidebar */}
         <div className="space-y-6">
-          {/* Type Preview */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                {React.createElement(getTypeIcon(formData.announcement_type), { className: "w-5 h-5" })}
-                Type Preview
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Badge variant="outline">
-                  {announcementTypes.find(t => t.value === formData.announcement_type)?.label}
-                </Badge>
-                <Badge className={priorities.find(p => p.value === formData.priority)?.color}>
-                  {formData.priority.charAt(0).toUpperCase() + formData.priority.slice(1)}
-                </Badge>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {announcementTypes.find(t => t.value === formData.announcement_type)?.description}
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Options */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Options</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="featured"
-                  checked={formData.is_featured}
-                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_featured: checked }))}
-                />
-                <Label htmlFor="featured" className="flex items-center gap-2">
-                  <Star className="w-4 h-4" />
-                  Mark as featured
-                </Label>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Featured announcements will be highlighted and appear at the top of the list.
-              </p>
-            </CardContent>
-          </Card>
-
           {/* Actions */}
           <Card>
             <CardContent className="pt-6">

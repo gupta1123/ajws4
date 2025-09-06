@@ -83,47 +83,47 @@ export default function StudentDetailsPage({ params }: { params: Promise<{ id: s
   }, [token, studentId]);
 
   // Fetch student data
-  useEffect(() => {
-    const fetchStudentData = async () => {
-      if (!token || !studentId) return;
+  const refreshStudentData = useCallback(async () => {
+    if (!token || !studentId) return;
+    try {
+      setLoading(true);
+      setError(null);
 
-      try {
-        setLoading(true);
-        setError(null);
+      const response = await studentServices.getStudentById(studentId, token);
 
-        const response = await studentServices.getStudentById(studentId, token);
-
-        // Handle Blob response (shouldn't happen for JSON endpoints)
-        if (response instanceof Blob) {
-          setError('Unexpected response format from API');
-          return;
-        }
-
-        // Handle error response
-        if ('status' in response && response.status === 'error') {
-          setError(response.message || 'Failed to fetch student data');
-          return;
-        }
-
-        // Handle successful response
-        if ('status' in response && response.status === 'success' && response.data) {
-          setStudentData(response.data.student);
-          // Fetch leave history after student data is loaded
-          fetchLeaveHistory();
-        }
-      } catch (err: unknown) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch student data';
-        setError(errorMessage);
-        console.error('Error fetching student data:', err);
-      } finally {
-        setLoading(false);
+      // Handle Blob response (shouldn't happen for JSON endpoints)
+      if (response instanceof Blob) {
+        setError('Unexpected response format from API');
+        return;
       }
-    };
 
-    if (token && studentId) {
-      fetchStudentData();
+      // Handle error response
+      if ('status' in response && response.status === 'error') {
+        setError(response.message || 'Failed to fetch student data');
+        return;
+      }
+
+      // Handle successful response
+      if ('status' in response && response.status === 'success' && response.data) {
+        setStudentData(response.data.student);
+        // Fetch leave history after student data is loaded
+        fetchLeaveHistory();
+      }
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch student data';
+      setError(errorMessage);
+      console.error('Error fetching student data:', err);
+    } finally {
+      setLoading(false);
     }
   }, [token, studentId, fetchLeaveHistory]);
+
+  // Fetch student data on mount / changes
+  useEffect(() => {
+    if (token && studentId) {
+      refreshStudentData();
+    }
+  }, [token, studentId, refreshStudentData]);
 
 
 
@@ -480,21 +480,19 @@ export default function StudentDetailsPage({ params }: { params: Promise<{ id: s
                         <TableHead>Name</TableHead>
                         <TableHead>Relationship</TableHead>
                         <TableHead>Phone</TableHead>
-                        <TableHead>Email</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {studentData.parent_mappings?.map((mapping) => (
                         <TableRow key={mapping.id}>
                           <TableCell className="font-medium">{mapping.parent.full_name}</TableCell>
-                          <TableCell>{mapping.relationship}</TableCell>
+                          <TableCell>{'Guardian'}</TableCell>
                           <TableCell>
                             <div className="flex items-center">
                               <Phone className="mr-2 h-4 w-4 text-muted-foreground" />
                               {mapping.parent.phone_number}
                             </div>
                           </TableCell>
-                          <TableCell>{mapping.parent.email || 'N/A'}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -606,6 +604,7 @@ export default function StudentDetailsPage({ params }: { params: Promise<{ id: s
                   })) || []}
                   studentAdmissionNumber={studentData?.admission_number}
                   relationship="father"
+                  onParentCreatedAndLinked={refreshStudentData}
                 />
               </CardContent>
             </Card>

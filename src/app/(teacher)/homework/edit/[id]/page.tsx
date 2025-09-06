@@ -19,6 +19,7 @@ import { ApiResponseWithCache, ApiErrorResponse } from '@/lib/api/client';
 import { Homework, Attachment } from '@/types/homework';
 import { toast } from '@/hooks/use-toast';
 import { FileUploader } from '@/components/ui/file-uploader';
+import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 
 // Interface for the API response structure
 interface AssignedClass {
@@ -89,9 +90,17 @@ export default function EditHomeworkPage({ params }: PageProps) {
 
   const [existingAttachments, setExistingAttachments] = useState<Attachment[]>([]);
   const [editingAttachment, setEditingAttachment] = useState<string | null>(null);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [attachmentToDelete, setAttachmentToDelete] = useState<Attachment | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [editFileInput, setEditFileInput] = useState<HTMLInputElement | null>(null);
   const [previewImage, setPreviewImage] = useState<{ url: string; name: string; type: 'image' | 'pdf' | 'text' } | null>(null);
   const [imageBlobUrls, setImageBlobUrls] = useState<Record<string, string>>({});
+  const [newFilesToUpload, setNewFilesToUpload] = useState<File[]>([]);
+  const imageBlobUrlsRef = useRef<Record<string, string>>({});
+  useEffect(() => {
+    imageBlobUrlsRef.current = imageBlobUrls;
+  }, [imageBlobUrls]);
 
   // keep track of mounted status to avoid state updates on unmounted
   const mountedRef = useRef(true);
@@ -105,81 +114,39 @@ export default function EditHomeworkPage({ params }: PageProps) {
     return `${division.class_level?.name || 'Unknown'} - Section ${division.division}`;
   };
 
-  // Get preview URL for attachment
+  // Get direct URL with token param for previewing inline
   const getPreviewUrl = useCallback((attachment: Attachment): string | null => {
-    if (!attachment.download_endpoint || !token) {
-      return null;
+    // Prefer direct download_url from the homework payload when available
+    if (attachment.download_url) {
+      setImageBlobUrls(prev => ({ ...prev, [attachment.id]: attachment.download_url! }));
+      return attachment.download_url!;
     }
 
-    // Create a blob URL by fetching the file with proper authentication
-    const createAuthenticatedBlobUrl = async (): Promise<string | null> => {
-      try {
-        const response = await fetch(`https://ajws-school-ba8ae5e3f955.herokuapp.com${attachment.download_endpoint}`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          console.error(`Failed to fetch ${attachment.file_name}: ${response.status} ${response.statusText}`);
-          return null;
-        }
-
-        const blob = await response.blob();
-        const blobUrl = URL.createObjectURL(blob);
-        return blobUrl;
-      } catch (error) {
-        console.error(`Error creating blob URL for ${attachment.file_name}:`, error);
-        return null;
-      }
-    };
-
-    // Return a promise that resolves to the blob URL
-    createAuthenticatedBlobUrl().then(blobUrl => {
-      if (blobUrl && mountedRef.current) {
-        // Store the blob URL for this attachment
-        setImageBlobUrls(prev => ({ ...prev, [attachment.id]: blobUrl }));
-      }
-    });
-
-    // Return null initially, the blob URL will be set when ready
-    return null;
-  }, [token]);
+    // Fallback to API endpoint-based URL when download_url is not provided
+    if (!homework?.id || !token) return null;
+    const directUrl = homeworkServices.getAttachmentUrl(homework.id, attachment.id, token);
+    setImageBlobUrls(prev => ({ ...prev, [attachment.id]: directUrl }));
+    return directUrl;
+  }, [homework?.id, token]);
 
   // Load all attachments and create blob URLs
   const loadAllAttachments = useCallback(async (attachments: Attachment[]) => {
     console.log('Loading attachments:', attachments.length);
-
+    // We can still load when token is missing if download_url is present
+    if (!homework?.id && attachments.every(a => !a.download_url)) return;
+    const map: Record<string, string> = {};
     for (const attachment of attachments) {
-      if (attachment.download_endpoint && token) {
-        try {
-          const response = await fetch(`https://ajws-school-ba8ae5e3f955.herokuapp.com${attachment.download_endpoint}`, {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          });
-
-          if (response.ok) {
-            const blob = await response.blob();
-            const blobUrl = URL.createObjectURL(blob);
-
-            if (mountedRef.current) {
-              setImageBlobUrls(prev => ({ ...prev, [attachment.id]: blobUrl }));
-              console.log(`Created blob URL for ${attachment.file_name}`);
-            }
-          } else {
-            console.error(`Failed to fetch ${attachment.file_name}: ${response.status} ${response.statusText}`);
-          }
-        } catch (error) {
-          console.error(`Error creating blob URL for ${attachment.file_name}:`, error);
-        }
+      // Prefer direct download_url if present; else fall back to API endpoint URL
+      if (attachment.download_url) {
+        map[attachment.id] = attachment.download_url;
+      } else if (homework?.id && token) {
+        map[attachment.id] = homeworkServices.getAttachmentUrl(homework.id, attachment.id, token);
       }
     }
-  }, [token]);
+    if (mountedRef.current) {
+      setImageBlobUrls(prev => ({ ...prev, ...map }));
+    }
+  }, [homework?.id, token]);
 
 
 
@@ -219,14 +186,12 @@ export default function EditHomeworkPage({ params }: PageProps) {
     [token, loadAllAttachments]
   );
 
-  const handleDeleteAttachment = async (attachment: Attachment) => {
+  // Actual delete logic (invoked after user confirmation)
+  const performDeleteAttachment = async (attachment: Attachment) => {
     if (!homework?.id || !token) return;
 
-    if (!confirm(`Are you sure you want to delete "${attachment.file_name}"?`)) {
-      return;
-    }
-
     try {
+      setDeleting(true);
       const response = await homeworkServices.deleteAttachment(homework.id, attachment.id, token);
       if ((response as ApiResponse)?.status === 'success') {
         toast({
@@ -236,7 +201,10 @@ export default function EditHomeworkPage({ params }: PageProps) {
         });
         // Remove from local state
         setExistingAttachments(prev => prev.filter(att => att.id !== attachment.id));
-
+        setImageBlobUrls(prev => {
+          const { [attachment.id]: _removed, ...rest } = prev;
+          return rest;
+        });
       } else {
         throw new Error((response as ApiResponse)?.message || 'Failed to delete attachment');
       }
@@ -247,6 +215,8 @@ export default function EditHomeworkPage({ params }: PageProps) {
         description: "Failed to delete attachment. Please try again.",
         variant: "error",
       });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -299,15 +269,17 @@ export default function EditHomeworkPage({ params }: PageProps) {
   };
 
   const handleDownload = (attachment: Attachment) => {
-    const downloadUrl = homework?.id ? `https://ajws-school-ba8ae5e3f955.herokuapp.com/api/homework/${homework.id}/attachments/${attachment.id}?token=${token}` : (attachment.download_url || '');
-
-    if (!downloadUrl) return;
-
-    // Create a temporary link and trigger download
+    // Use direct download_url when available; else fallback to Heroku attachment endpoint
+    const directUrl = attachment.download_url
+      ? attachment.download_url
+      : (homework?.id && token
+        ? homeworkServices.getAttachmentUrl(homework.id, attachment.id, token)
+        : '');
+    if (!directUrl) return;
     const link = document.createElement('a');
-    link.href = downloadUrl;
-    link.download = attachment.file_name;
+    link.href = directUrl;
     link.target = '_blank';
+    // Let browser handle content-type; omit download attribute for cross-origin
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -394,9 +366,20 @@ export default function EditHomeworkPage({ params }: PageProps) {
               description: homeworkData.description ?? '',
               due_date: formattedDueDate
             });
+            
+            // Prefer attachments included in the homework response if present
+            const inlineAttachments = Array.isArray(homeworkData.attachments)
+              ? homeworkData.attachments
+              : [];
 
-            // ✅ Fetch attachments using the ID directly (not relying on state yet)
-            await fetchExistingAttachmentsById(homeworkIdFromParams);
+            if (inlineAttachments.length > 0) {
+              setExistingAttachments(inlineAttachments);
+              // Build direct preview URLs using Heroku base via service helper
+              await loadAllAttachments(inlineAttachments);
+            } else {
+              // Fallback: fetch attachments via API
+              await fetchExistingAttachmentsById(homeworkIdFromParams);
+            }
           } else {
             setError('Homework data not found in response');
             console.error('No homework data in response:', (homeworkResponse as HomeworkApiResponse).data);
@@ -442,13 +425,14 @@ export default function EditHomeworkPage({ params }: PageProps) {
 
   // Cleanup function for blob URLs
   const cleanupBlobUrls = useCallback(() => {
-    Object.values(imageBlobUrls).forEach(url => {
+    const urls = Object.values(imageBlobUrlsRef.current);
+    urls.forEach(url => {
       if (url && url.startsWith('blob:')) {
         URL.revokeObjectURL(url);
       }
     });
-    setImageBlobUrls({});
-  }, [imageBlobUrls]);
+    // Do not set state here to avoid update loops during unmount/cleanup
+  }, []);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -514,28 +498,8 @@ export default function EditHomeworkPage({ params }: PageProps) {
   };
 
   const handleUploadFiles = async (files: File[]) => {
-    if (!homework?.id || files.length === 0) return;
-
-    try {
-      const response = await homeworkServices.uploadAttachments(homework.id, files, token || '');
-      if ((response as ApiResponse)?.status === 'success') {
-        toast({
-          title: "Success",
-          description: `${files.length} file(s) uploaded successfully!`,
-          variant: "success",
-        });
-        await fetchExistingAttachmentsById(homework.id);
-      } else {
-        throw new Error((response as UploadApiResponse)?.message || 'Failed to upload files');
-      }
-    } catch (err) {
-      console.error('Error uploading files:', err);
-      toast({
-        title: "Error",
-        description: "Failed to upload files. Please try again.",
-        variant: "error",
-      });
-    }
+    // Queue for upload on Save
+    setNewFilesToUpload(files);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -547,6 +511,18 @@ export default function EditHomeworkPage({ params }: PageProps) {
 
       const response = await homeworkServices.updateHomework(homework!.id, formData, token!);
       if ((response as ApiResponse)?.status === 'success') {
+        // If there are new files selected, upload them now
+        if (newFilesToUpload.length > 0) {
+          try {
+            const upRes = await homeworkServices.uploadAttachments(homework!.id, newFilesToUpload, token!);
+            if ((upRes as ApiResponse)?.status !== 'success') {
+              throw new Error((upRes as ApiResponse)?.message || 'Failed to upload attachments');
+            }
+          } catch (uploadErr) {
+            console.error('Attachment upload error during update:', uploadErr);
+            toast({ title: 'Attachment upload failed', description: 'Homework was updated, but attachments failed to upload.', variant: 'error' });
+          }
+        }
         router.push('/homework');
       } else {
         setError('Failed to update homework');
@@ -819,7 +795,7 @@ export default function EditHomeworkPage({ params }: PageProps) {
                               type="button"
                               variant="ghost"
                               size="icon"
-                              onClick={() => handleDeleteAttachment(attachment)}
+                              onClick={() => { setAttachmentToDelete(attachment); setConfirmDeleteOpen(true); }}
                               className="h-7 w-7 text-muted-foreground hover:text-foreground"
                               title="Delete file"
                             >
@@ -834,11 +810,12 @@ export default function EditHomeworkPage({ params }: PageProps) {
 
                 {/* File Uploader */}
                 <FileUploader
-                  onUpload={handleUploadFiles}
+                  onFilesSelected={(files) => setNewFilesToUpload(files)}
                   accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif"
                   maxFiles={5}
                   maxSize={10}
                   className="border-0 shadow-none"
+                  hideUploadButton
                 />
                 <p className="text-xs text-muted-foreground">
                   Supported formats: PDF, Word documents, text files, and images. Max 5 files, 10MB each.
@@ -924,6 +901,28 @@ export default function EditHomeworkPage({ params }: PageProps) {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        open={confirmDeleteOpen}
+        onOpenChange={(open) => {
+          setConfirmDeleteOpen(open);
+          if (!open) setAttachmentToDelete(null);
+        }}
+        title="Delete Attachment"
+        description={attachmentToDelete ? `Are you sure you want to delete "${attachmentToDelete.file_name}"? This action cannot be undone.` : 'Are you sure you want to delete this attachment?'}
+        confirmText="Delete"
+        cancelText="Cancel"
+        confirmVariant="destructive"
+        isLoading={deleting}
+        onConfirm={async () => {
+          if (attachmentToDelete) {
+            await performDeleteAttachment(attachmentToDelete);
+            setConfirmDeleteOpen(false);
+            setAttachmentToDelete(null);
+          }
+        }}
+      />
     </ProtectedRoute>
   );
 }

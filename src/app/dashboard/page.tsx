@@ -41,9 +41,7 @@ const AttendanceQuickCard = dynamic(() => import('@/components/dashboard/teacher
 const WorkItemsCard = dynamic(() => import('@/components/dashboard/teacher/work-items-card').then(mod => mod.WorkItemsCard), {
   loading: () => <div className="h-40 bg-muted animate-pulse rounded-lg" />
 });
-const MessagesSummaryCard = dynamic(() => import('@/components/dashboard/teacher/messages-summary-card').then(mod => mod.MessagesSummaryCard), {
-  loading: () => <div className="h-32 bg-muted animate-pulse rounded-lg" />
-});
+// Removed MessagesSummaryCard from dashboard per requirement
 
 
 const DashboardPage = () => {
@@ -100,9 +98,6 @@ const DashboardPage = () => {
 
             {/* Right: awareness */}
             <div className="space-y-6">
-              <Suspense fallback={<div className="h-32 bg-muted animate-pulse rounded-lg" />}>
-                <MessagesSummaryCard />
-              </Suspense>
               <ErrorBoundary fallback={ApiErrorFallback}>
                 <Suspense fallback={<div className="h-32 bg-muted animate-pulse rounded-lg" />}>
                   <UpcomingEvents />

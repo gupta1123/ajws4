@@ -20,6 +20,7 @@ interface FileUploaderProps {
   maxFiles?: number;
   maxSize?: number; // in MB
   className?: string;
+  hideUploadButton?: boolean;
 }
 
 export function FileUploader({
@@ -29,6 +30,7 @@ export function FileUploader({
   maxFiles = 5,
   maxSize = 10, // 10MB default
   className,
+  hideUploadButton = false,
 }: FileUploaderProps) {
   const [files, setFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -194,13 +196,15 @@ export function FileUploader({
                 >
                   Clear All
                 </Button>
-                <Button 
-                  size="sm"
-                  onClick={handleUpload}
-                  disabled={isUploading}
-                >
-                  {isUploading ? 'Uploading...' : 'Upload Files'}
-                </Button>
+                {!hideUploadButton && onUpload && (
+                  <Button 
+                    size="sm"
+                    onClick={handleUpload}
+                    disabled={isUploading}
+                  >
+                    {isUploading ? 'Uploading...' : 'Upload Files'}
+                  </Button>
+                )}
               </div>
             </div>
             
@@ -213,12 +217,12 @@ export function FileUploader({
                     className="flex items-center justify-between p-3 rounded-lg border bg-muted/20"
                   >
                     <div className="flex items-center gap-3">
-                      {result ? getStatusIcon(result.status) : <File className="h-4 w-4 text-muted-foreground" />}
+                      {!hideUploadButton && result ? getStatusIcon(result.status) : <File className="h-4 w-4 text-muted-foreground" />}
                       <div>
                         <p className="font-medium text-sm">{file.name}</p>
                         <p className="text-xs text-muted-foreground">
                           {formatFileSize(file.size)}
-                          {result?.message && (
+                          {!hideUploadButton && result?.message && (
                             <span className={`ml-2 ${getStatusColor(result.status)}`}>
                               {result.message}
                             </span>

@@ -5,11 +5,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Search, Users, ArrowLeft, MessageSquare, Loader2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
-import { academicServices } from '@/lib/api/academic';
-import { checkExistingThread, startConversation, getDivisionParents } from '@/lib/api/messages';
+import { useTeacher } from '@/lib/auth/teacher-context';
+import { checkExistingThread, startConversation, getDivisionParents, CheckExistingThreadResponse, StartConversationResponse } from '@/lib/api/messages';
 
 interface TeacherClass {
   class_division_id: string;
@@ -52,61 +53,56 @@ type ModalStep = 'classes' | 'parents' | 'creating';
 
 export function StartChatTeacherModal({ open, onOpenChange, onChatStarted }: StartChatTeacherModalProps) {
   const { token, user } = useAuth();
+  const { teacherData } = useTeacher();
   const [step, setStep] = useState<ModalStep>('classes');
   const [classes, setClasses] = useState<TeacherClass[]>([]);
   const [selectedClass, setSelectedClass] = useState<TeacherClass | null>(null);
   const [parents, setParents] = useState<ParentStudent[]>([]);
-  const [selectedParent, setSelectedParent] = useState<ParentStudent | null>(null);
+  // Removed unused selectedParent state
+  const [selectedParentIds, setSelectedParentIds] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchTeacherClasses = useCallback(async () => {
-    if (!token || !user) return;
-
+  const fetchTeacherClasses = useCallback(() => {
+    if (!user) return;
     try {
       setLoading(true);
       setError(null);
 
-      const response = await academicServices.getMyTeacherInfo(token);
-
-      if (response.status === 'success' && response.data.assigned_classes) {
-        // Transform the API response to match our interface
-        const transformedClasses: TeacherClass[] = response.data.assigned_classes.map((assignment) => ({
-          class_division_id: assignment.class_division_id,
-          assignment_type: assignment.assignment_type,
-          subject: assignment.subject || null,
-          is_primary: assignment.is_primary,
-          class_info: {
-            id: assignment.class_division_id,
-            division: assignment.division,
-            class_level: {
-              name: assignment.class_name
-            },
-            academic_year: {
-              year_name: assignment.academic_year
-            }
+      const assignments = teacherData?.assigned_classes || [];
+      const transformedClasses: TeacherClass[] = assignments.map((assignment) => ({
+        class_division_id: assignment.class_division_id,
+        assignment_type: assignment.assignment_type as TeacherClass['assignment_type'],
+        subject: assignment.subject || null,
+        is_primary: assignment.is_primary,
+        class_info: {
+          id: assignment.class_division_id,
+          division: assignment.division,
+          class_level: {
+            name: assignment.class_name
+          },
+          academic_year: {
+            year_name: assignment.academic_year
           }
-        }));
-        setClasses(transformedClasses);
-      } else {
-        setError('Failed to fetch your assigned classes');
-      }
+        }
+      }));
+      setClasses(transformedClasses);
     } catch (error) {
-      console.error('Error fetching teacher classes:', error);
+      console.error('Error preparing teacher classes:', error);
       setError('Failed to load your classes');
     } finally {
       setLoading(false);
     }
-  }, [token, user]);
+  }, [user, teacherData]);
 
   // Reset modal state when opened
   useEffect(() => {
     if (open) {
       setStep('classes');
       setSelectedClass(null);
-      setSelectedParent(null);
+      // no-op
       setSearchTerm('');
       setError(null);
       fetchTeacherClasses();
@@ -207,82 +203,6 @@ export function StartChatTeacherModal({ open, onOpenChange, onChatStarted }: Sta
     fetchDivisionParents(classItem.class_division_id);
   };
 
-  const handleParentSelect = async (parent: ParentStudent) => {
-    if (!user) return;
-
-    try {
-      setCreating(true);
-      setSelectedParent(parent);
-
-      // Check if chat thread already exists
-      const parentId = parent.parent.parent_id;
-      if (!parentId) {
-        setError('Invalid parent ID');
-        return;
-      }
-
-      const checkResponse = await checkExistingThread({
-        participants: [user.id, parentId],
-        thread_type: 'direct'
-      }, token || undefined);
-
-      if (checkResponse && typeof checkResponse === 'object' && 'status' in checkResponse && checkResponse.status === 'success' && 'data' in checkResponse) {
-        const data = checkResponse.data as unknown as {
-          exists: boolean;
-          thread?: {
-            id: string;
-            title: string;
-            thread_type: string;
-            created_at: string;
-            updated_at: string;
-            created_by: string;
-            status: string;
-          };
-        };
-        if (data.exists && data.thread) {
-          // Thread exists, open it
-          onChatStarted(data.thread.id, true); // true = existing chat
-          onOpenChange(false);
-          return;
-        }
-      }
-
-      // Thread doesn't exist, create new one
-      const startResponse = await startConversation({
-        participants: [user.id, parentId],
-        message_content: `Hi ${parent.parent.full_name}, I'm reaching out regarding your child ${parent.student_name}.`,
-        thread_type: 'direct',
-        title: `Chat with ${parent.parent.full_name} (${parent.student_name})`
-      }, token || undefined);
-
-      if (startResponse && typeof startResponse === 'object' && 'status' in startResponse && startResponse.status === 'success' && 'data' in startResponse) {
-        const data = startResponse.data as unknown as {
-          thread: {
-            id: string;
-            thread_type: string;
-            title: string;
-            created_by: string;
-            created_at: string;
-          };
-          message: {
-            id: string;
-            content: string;
-            sender_id: string;
-          };
-        };
-        onChatStarted(data.thread.id, false); // false = new chat
-        onOpenChange(false);
-      } else {
-        setError('Failed to start chat');
-      }
-    } catch (error) {
-      console.error('Error creating chat:', error);
-      setError('Failed to start chat');
-    } finally {
-      setCreating(false);
-      setSelectedParent(null);
-    }
-  };
 
   const filteredParents = parents.filter(parent =>
     parent.student_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -427,41 +347,32 @@ export function StartChatTeacherModal({ open, onOpenChange, onChatStarted }: Sta
                 ) : (
                   <div className="space-y-3 max-h-96 overflow-y-auto">
                     {filteredParents.map((parent) => (
-                      <Card
-                        key={`${parent.student_id}-${parent.parent.parent_id}`}
-                        className={`cursor-pointer hover:shadow-md transition-all ${
-                          selectedParent?.student_id === parent.student_id && selectedParent?.parent.parent_id === parent.parent.parent_id ? 'ring-2 ring-primary' : ''
-                        } ${creating && selectedParent?.student_id === parent.student_id && selectedParent?.parent.parent_id === parent.parent.parent_id ? 'opacity-50' : ''}`}
-                        onClick={() => !creating && handleParentSelect(parent)}
-                      >
+                      <Card key={`${parent.student_id}-${parent.parent.parent_id}`} className="transition-all">
                         <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                                  <Users className="h-5 w-5 text-primary" />
-                                </div>
-                                <div>
-                                  <div className="flex items-center gap-2">
-                                    <h4 className="font-medium">{parent.parent.full_name}</h4>
-                                    {parent.parent.is_primary_guardian && (
-                                      <Badge variant="secondary" className="text-xs">
-                                        Primary
-                                      </Badge>
-                                    )}
-                                  </div>
-                                  <p className="text-sm text-muted-foreground">
-                                    Student: {parent.student_name} (Roll: {parent.roll_number})
-                                  </p>
-                                  <p className="text-xs text-muted-foreground capitalize">
-                                    {parent.parent.relationship}
-                                  </p>
-                                </div>
-                              </div>
+                          <div className="flex items-center gap-3">
+                            <Checkbox
+                              checked={selectedParentIds.has(parent.parent.parent_id)}
+                              onCheckedChange={() => setSelectedParentIds(prev => {
+                                const next = new Set(prev);
+                                if (next.has(parent.parent.parent_id)) next.delete(parent.parent.parent_id); else next.add(parent.parent.parent_id);
+                                return next;
+                              })}
+                            />
+                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                              <Users className="h-5 w-5 text-primary" />
                             </div>
-                            {creating && selectedParent?.student_id === parent.student_id && selectedParent?.parent.parent_id === parent.parent.parent_id && (
-                              <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                            )}
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-medium">{parent.parent.full_name}</h4>
+                                {parent.parent.is_primary_guardian && (
+                                  <Badge variant="secondary" className="text-xs">Primary</Badge>
+                                )}
+                                <Badge variant="outline" className="text-xs capitalize">{parent.parent.relationship}</Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground">
+                                Student: {parent.student_name} (Roll: {parent.roll_number})
+                              </p>
+                            </div>
                           </div>
                         </CardContent>
                       </Card>
@@ -472,6 +383,67 @@ export function StartChatTeacherModal({ open, onOpenChange, onChatStarted }: Sta
             )}
           </div>
         </div>
+        {step === 'parents' && (
+          <div className="flex items-center justify-between mt-4">
+            <div className="text-sm text-muted-foreground">Selected: {selectedParentIds.size}</div>
+            <Button
+              onClick={async () => {
+                // reuse the direct/group logic
+                const ids = Array.from(selectedParentIds);
+                if (ids.length === 0) return;
+                setCreating(true);
+                try {
+                  if (!user) return;
+                  if (ids.length === 1) {
+                    const parentId = ids[0];
+                    const check = await checkExistingThread({ participants: [parentId], thread_type: 'direct' }, token || undefined);
+                    if (check && typeof check === 'object' && 'status' in check && check.status === 'success' && 'data' in check && (check.data as unknown as CheckExistingThreadResponse['data'])?.exists && (check.data as unknown as CheckExistingThreadResponse['data']).thread?.id) {
+                      onChatStarted((check.data as unknown as CheckExistingThreadResponse['data']).thread!.id, true);
+                      onOpenChange(false);
+                    } else {
+                      const selected = parents.find(p => p.parent.parent_id === parentId);
+                      const resp = await startConversation({
+                        participants: [parentId],
+                        message_content: selected ? `Hi ${selected.parent.full_name}, I'm reaching out regarding your child ${selected.student_name}.` : 'Hello',
+                        thread_type: 'direct',
+                        title: selected ? `Chat with ${selected.parent.full_name} (${selected.student_name})` : 'Chat with Parent'
+                      }, token || undefined);
+                      if (resp && typeof resp === 'object' && 'status' in resp && resp.status === 'success' && 'data' in resp && (resp.data as unknown as StartConversationResponse['data'])?.thread?.id) {
+                        onChatStarted((resp.data as unknown as StartConversationResponse['data']).thread.id, false);
+                        onOpenChange(false);
+                      }
+                    }
+                  } else {
+                    // Group chat: check if a thread with the same participants exists
+                    const checkGroup = await checkExistingThread({ participants: ids, thread_type: 'group' }, token || undefined);
+                    if (checkGroup && typeof checkGroup === 'object' && 'status' in checkGroup && checkGroup.status === 'success' && 'data' in checkGroup && (checkGroup.data as unknown as CheckExistingThreadResponse['data'])?.exists && (checkGroup.data as unknown as CheckExistingThreadResponse['data']).thread?.id) {
+                      onChatStarted((checkGroup.data as unknown as CheckExistingThreadResponse['data']).thread!.id, true);
+                      onOpenChange(false);
+                    } else {
+                      const titleBase = selectedClass ? `${selectedClass.class_info.class_level.name} ${selectedClass.class_info.division}` : 'Parents Group';
+                      const resp = await startConversation({
+                        participants: ids,
+                        message_content: 'Hello everyone',
+                        thread_type: 'group',
+                        title: `Parents of ${titleBase}`
+                      }, token || undefined);
+                      if (resp && typeof resp === 'object' && 'status' in resp && resp.status === 'success' && 'data' in resp && (resp.data as unknown as StartConversationResponse['data'])?.thread?.id) {
+                        onChatStarted((resp.data as unknown as StartConversationResponse['data']).thread.id, false);
+                        onOpenChange(false);
+                      }
+                    }
+                  }
+                } finally {
+                  setCreating(false);
+                }
+              }}
+              disabled={creating || selectedParentIds.size === 0}
+            >
+              {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4 mr-2" />}
+              {selectedParentIds.size > 1 ? 'Start Group Chat' : 'Start Chat'}
+            </Button>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

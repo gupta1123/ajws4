@@ -222,6 +222,43 @@ export const apiClient = {
     return response.json();
   },
 
+  // PUT helper that supports FormData bodies without forcing JSON headers
+  putForm: async <T>(endpoint: string, data: FormData, token?: string): Promise<ApiResponse<T> | ApiErrorResponse> => {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: 'PUT',
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      body: data,
+    });
+
+    if (!response.ok) {
+      let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+
+      try {
+        const errorData = await response.json();
+        if (errorData.message) {
+          errorMessage = errorData.message;
+        } else if (errorData.error) {
+          errorMessage = errorData.error;
+        } else if (errorData.detail) {
+          errorMessage = errorData.detail;
+        }
+      } catch {
+        // ignore parse failure
+      }
+
+      return {
+        status: 'error',
+        message: errorMessage,
+        statusCode: response.status,
+        error: response.statusText
+      } as ApiErrorResponse;
+    }
+
+    return response.json();
+  },
+
   delete: async <T>(endpoint: string, token?: string): Promise<ApiResponse<T> | ApiErrorResponse> => {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'DELETE',

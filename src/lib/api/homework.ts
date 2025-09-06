@@ -155,7 +155,13 @@ export const homeworkServices = {
 
   // Update attachment
   updateAttachment: async (homeworkId: string, attachmentId: string, data: FormData, token: string): Promise<ApiResponse<Attachment> | ApiErrorResponse> => {
-    const result = await apiClient.put(`/api/homework/${homeworkId}/attachments/${attachmentId}`, data, token);
+    const result = await apiClient.putForm<Attachment>(`/api/homework/${homeworkId}/attachments/${attachmentId}`, data, token);
     return result as ApiResponse<Attachment> | ApiErrorResponse;
+  },
+
+  // Optionally link an existing attachment ID to homework (empty body PUT)
+  linkAttachment: async (homeworkId: string, attachmentId: string, token: string): Promise<ApiResponse<{ attachment: Attachment }> | ApiErrorResponse> => {
+    const result = await apiClient.put<{ attachment: Attachment }>(`/api/homework/${homeworkId}/attachments/${attachmentId}`, {}, token);
+    return result as ApiResponse<{ attachment: Attachment }> | ApiErrorResponse;
   }
 };

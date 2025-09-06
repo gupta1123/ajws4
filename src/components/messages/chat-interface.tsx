@@ -16,7 +16,8 @@ import {
   AlertCircle,
   Loader2,
   Star,
-  MessageSquare
+  MessageSquare,
+  UserCheck
 } from 'lucide-react';
 import {
   getTeacherLinkedParents,
@@ -193,6 +194,20 @@ const transformThreadsToContacts = (threads: ChatThread[], user: { id: string } 
       .filter(p => p.user_id !== user?.id)
       .map(p => p.user.full_name);
     
+    // Compute a friendly display name using recipients (exclude me)
+    const otherNames = groupMembers.filter(Boolean);
+    let displayName = thread.title;
+    if (otherNames.length > 0) {
+      if (isGroup) {
+        displayName = otherNames.length <= 2
+          ? otherNames.join(', ')
+          : `${otherNames.slice(0, 2).join(', ')} …`;
+      } else {
+        // direct chat
+        displayName = otherNames[0];
+      }
+    }
+    
     
     // Find teacher data if this is a teacher chat
     const teacherParticipant = thread.participants.find(p => p.user.role === 'teacher');
@@ -212,7 +227,7 @@ const transformThreadsToContacts = (threads: ChatThread[], user: { id: string } 
     
     return {
       id: thread.id,
-      name: thread.title,
+      name: displayName || thread.title,
       lastMessage: lastMessage ? lastMessage.content : 'No messages yet',
       lastMessageTime: lastMessage ? formatDate(lastMessage.created_at) : formatDate(thread.created_at),
       unreadCount: 0, // TODO: Implement unread count logic
@@ -248,12 +263,13 @@ const transformApiMessagesToChatMessages = (apiMessages: ApiChatMessage[], user:
 
 interface ChatInterfaceProps {
   selectedParentId?: string;
+  selectedThreadId?: string;
   isAdminOrPrincipal?: boolean;
   chatsData?: { threads?: unknown[] };
   refreshKey?: number;
 }
 
-export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData, refreshKey }: ChatInterfaceProps) {
+export function ChatInterface({ selectedParentId, selectedThreadId, isAdminOrPrincipal, chatsData, refreshKey }: ChatInterfaceProps) {
   const { token, user } = useAuth();
   const [contacts, setContacts] = useState<ChatContact[]>([]);
   const [activeChat, setActiveChat] = useState<ChatContact | null>(null);
@@ -270,15 +286,33 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [selectingParent, setSelectingParent] = useState(false);
+  const lastPrincipalThreadsKeyRef = useRef<string>('');
+  const lastSelectedThreadIdRef = useRef<string | null>(null);
 
   // Hooks for real API data - only fetch messages for teachers, not principals
-  const { messages: apiMessages } = useChatMessages(currentThreadId);
+  const { messages: apiMessages, loading: messagesLoading } = useChatMessages(currentThreadId);
 
 
 
 
 
   // Initialize WebSocket connection - TEMPORARILY DISABLED
+  useEffect(() => {
+    // When a specific thread ID is provided, open it immediately and load messages
+    if (!selectedThreadId) return;
+    if (lastSelectedThreadIdRef.current === selectedThreadId) return;
+    lastSelectedThreadIdRef.current = selectedThreadId;
+
+    // Set thread for message fetching
+    setCurrentThreadId(selectedThreadId);
+    // Try to select contact by thread id when available
+    const candidate = contacts.find(c => c.threadData?.id === selectedThreadId);
+    if (candidate) {
+      setActiveChat(candidate);
+    }
+    setSelectingParent(false);
+  }, [selectedThreadId, contacts]);
+
   useEffect(() => {
     if (token) {
       // Temporarily disabled WebSocket - causing connection errors
@@ -343,29 +377,30 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
       last_read_at?: string;
     }
     
+    // Do not filter by participation here; API already scoped via includes_me
     return (threads || [])
-      .filter((t): t is PrincipalThread => (t as PrincipalThread)?.is_principal_participant === true || (t as PrincipalThread)?.badges?.includes_principal === true)
       .map((t) => {
-        const participants = (t.participants?.all || []).map((p: PrincipalParticipant) => ({
+        const thread = t as PrincipalThread;
+        const participants = (thread.participants?.all || []).map((p: PrincipalParticipant) => ({
           role: p.role,
           user: { role: p.user?.role, full_name: p.user?.full_name },
           user_id: p.user_id,
           last_read_at: p.last_read_at,
         }));
-        const lastMsg = t.last_message ? [{
-          sender: { full_name: t.last_message.sender?.full_name || '' },
-          content: t.last_message.content || '',
-          created_at: t.last_message.created_at || t.updated_at || t.created_at,
+        const lastMsg = thread.last_message ? [{
+          sender: { full_name: thread.last_message.sender?.full_name || '' },
+          content: thread.last_message.content || '',
+          created_at: thread.last_message.created_at || thread.updated_at || thread.created_at,
         }] : [];
-        const id = t.id || t.thread_id;
+        const id = thread.id || thread.thread_id;
         return {
           id,
-          thread_type: t.thread_type,
-          title: t.title,
-          created_by: t.created_by || '',
+          thread_type: thread.thread_type,
+          title: thread.title,
+          created_by: thread.created_by || '',
           status: 'active',
-          created_at: t.created_at,
-          updated_at: t.updated_at,
+          created_at: thread.created_at,
+          updated_at: thread.updated_at,
           participants,
           last_message: lastMsg as ChatThread['last_message'],
         } as ChatThread;
@@ -375,35 +410,54 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
   // Handle principal chats data for admin/principal users
   useEffect(() => {
     if (isAdminOrPrincipal && chatsData) {
+      // Prevent reprocessing the same threads set repeatedly
+      const threads = (chatsData.threads || []) as unknown[];
+      const key = Array.isArray(threads)
+        ? threads.map((t) => ((t as { id?: string; thread_id?: string }).id || (t as { id?: string; thread_id?: string }).thread_id || '')).join('|')
+        : '';
+      if (lastPrincipalThreadsKeyRef.current === key) {
+        return;
+      }
+      lastPrincipalThreadsKeyRef.current = key;
       console.log('=== ADMIN/PRINCIPAL CHATS DATA ===');
       console.log('Chats data:', chatsData);
       console.log('Threads:', chatsData.threads);
 
       // Normalize principal/admin threads and transform to contacts
       const normalizedThreads = normalizePrincipalThreads(chatsData.threads || []);
-      const transformedContacts = transformThreadsToContacts(normalizedThreads, user);
+      const transformedContacts: ChatContact[] = transformThreadsToContacts(normalizedThreads, user);
       console.log('Transformed contacts:', transformedContacts);
 
       const sortedContacts = sortContacts(transformedContacts);
-      setContacts(sortedContacts);
-      setLoading(false); // Ensure loading is set to false when data is loaded
+      // Only update contacts if actually changed to avoid loops
+      setContacts((prev: ChatContact[]) => {
+        const prevKey = prev.map((c) => c.id).join('|');
+        const nextKey = sortedContacts.map((c) => c.id).join('|');
+        if (prevKey === nextKey) return prev;
+        return sortedContacts;
+      });
+      // Ensure loading is set to false when data is loaded
+      setLoading(prev => (prev ? false : prev));
 
-      // Set first contact as active if none is selected
-      if (transformedContacts.length > 0 && !activeChat) {
+      // Set first contact as active if none is selected and not in the middle of a specific selection
+      if (transformedContacts.length > 0 && !activeChat && !selectingParent && !selectedParentId) {
         const firstContact = transformedContacts[0];
-        console.log('Setting first contact as active:', firstContact);
-        setActiveChat(firstContact);
-        // Set the thread ID for the first contact to load messages
-        if (firstContact.threadData) {
-          console.log('Setting thread ID for first contact:', firstContact.threadData.id);
-          setCurrentThreadId(firstContact.threadData.id);
+        if (firstContact) {
+          console.log('Setting first contact as active:', firstContact);
+          setActiveChat(firstContact);
+          // Set the thread ID for the first contact to load messages
+          const firstThreadId = firstContact.threadData?.id;
+          if (firstThreadId && currentThreadId !== firstThreadId) {
+            console.log('Setting thread ID for first contact:', firstThreadId);
+            setCurrentThreadId(firstThreadId);
+          }
         }
       }
     } else if (isAdminOrPrincipal && !chatsData) {
       // If it's a principal but no data yet, show loading
       setLoading(true);
     }
-  }, [isAdminOrPrincipal, chatsData, user, activeChat, normalizePrincipalThreads]);
+  }, [isAdminOrPrincipal, chatsData, user, normalizePrincipalThreads, activeChat, selectingParent, selectedParentId, currentThreadId]);
 
   // Handle API messages when thread changes (all roles)
   useEffect(() => {
@@ -559,15 +613,19 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
     }
   }, [token, user, isAdminOrPrincipal, fetchThreads]);
 
-  // Clean up selecting state when selectedParentId changes or component unmounts
-  useEffect(() => {
-    return () => {
-      setSelectingParent(false);
-    };
-  }, [selectedParentId]);
+  // Track last processed selection to avoid repeated scheduling
+  const lastSelectionIdRef = useRef<string | null>(null);
 
   // Auto-select chat when selectedParentId is provided
   useEffect(() => {
+    if (!selectedParentId) {
+      lastSelectionIdRef.current = null;
+      return;
+    }
+    // Avoid rescheduling for the same selection id
+    if (lastSelectionIdRef.current === selectedParentId) return;
+    lastSelectionIdRef.current = selectedParentId;
+
     if (selectedParentId) {
       console.log('=== SELECTION START ===');
       console.log('Selected ID:', selectedParentId);
@@ -587,7 +645,7 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
       console.log('Looking for selected ID:', selectedParentId);
       console.log('Parent ID found in list:', allParentIds.includes(selectedParentId));
       
-      setSelectingParent(true);
+      if (!selectingParent) setSelectingParent(true);
       
       // Clear any existing active chat to prevent showing default chat
       setActiveChat(null);
@@ -601,25 +659,32 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
       }
       
       // Add a small delay to ensure contacts are properly processed
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         let selectedContact = contacts.find(contact => 
-          contact.parentData?.parent_id === selectedParentId
-        );
+          contact.parentData?.parent_id === selectedParentId ||
+          contact.threadData?.id === selectedParentId
+        ) as ChatContact | undefined;
         if (!selectedContact && isAdminOrPrincipal) {
-          // For admin/principal allow selecting by thread ID or teacher ID
+          // For admin/principal also allow selecting by teacher ID
           selectedContact = contacts.find(contact =>
-            contact.threadData?.id === selectedParentId || contact.teacherData?.teacher_id === selectedParentId
+            contact.teacherData?.teacher_id === selectedParentId
           ) as ChatContact | undefined;
         }
         
         if (selectedContact) {
           console.log('✅ Found selected contact:', selectedContact.name);
           console.log('Contact data:', selectedContact);
-          setActiveChat(selectedContact);
+          if (!activeChat || activeChat.id !== selectedContact.id) {
+            setActiveChat(selectedContact);
+          }
+          // Ensure messages are fetched by setting thread ID when available
+          if (selectedContact.threadData?.id) {
+            setCurrentThreadId(selectedContact.threadData.id);
+          }
           setSearchTerm('');
-          setSelectingParent(false);
+          if (selectingParent) setSelectingParent(false);
           console.log('=== PARENT SELECTION SUCCESS ===');
-          
+
           // Ensure the contact is visible by scrolling to it if needed
           setTimeout(() => {
             const contactElement = document.querySelector(`[data-contact-id="${selectedContact.id}"]`);
@@ -629,13 +694,14 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
           }, 100);
         } else {
           console.log('❌ Selected contact not found in contacts:', selectedParentId);
-          console.log('Available IDs:', contacts.map(c => c.threadData?.id || c.parentData?.parent_id || c.teacherData?.teacher_id));
-          // If the parent is not found, it might be because contacts are still loading
-          // We'll let the contacts loading effect handle this
-        }
-      }, 100); // Small delay to ensure contacts are ready
-    }
-  }, [selectedParentId, contacts, isAdminOrPrincipal]);
+          console.log('Available IDs:', contacts.map(c => c.threadData?.id || (c.parentData && ('parent_id' in c.parentData ? c.parentData.parent_id : undefined)) || c.teacherData?.teacher_id));
+        // If the parent is not found, it might be because contacts are still loading
+        // We'll let the contacts loading effect handle this
+      }
+    }, 100); // Small delay to ensure contacts are ready
+    return () => clearTimeout(timer);
+  }
+  }, [selectedParentId, contacts, isAdminOrPrincipal, selectingParent, activeChat]);
 
   // Retry parent selection when contacts finish loading
   useEffect(() => {
@@ -648,18 +714,24 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
       console.log('Active chat:', activeChat);
       
       // Check if we need to retry the selection
-      let selectedContact = contacts.find(contact => contact.parentData?.parent_id === selectedParentId);
+      let selectedContact = contacts.find(contact => 
+        contact.parentData?.parent_id === selectedParentId ||
+        contact.threadData?.id === selectedParentId
+      );
       if (!selectedContact && isAdminOrPrincipal) {
         selectedContact = contacts.find(contact =>
-          contact.threadData?.id === selectedParentId || contact.teacherData?.teacher_id === selectedParentId
+          contact.teacherData?.teacher_id === selectedParentId
         );
       }
       
-      if (selectedContact && !activeChat) {
+      if (selectedContact && (!activeChat || activeChat.id !== selectedContact.id)) {
         console.log('✅ Retry successful - Found selected contact:', selectedContact.name);
         setActiveChat(selectedContact);
+        if (selectedContact.threadData?.id) {
+          setCurrentThreadId(selectedContact.threadData.id);
+        }
         setSearchTerm('');
-        setSelectingParent(false);
+        if (selectingParent) setSelectingParent(false);
         console.log('=== RETRY PARENT SELECTION SUCCESS ===');
       } else {
         console.log('❌ Retry failed - Contact not found or already active');
@@ -669,23 +741,24 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
     }
   }, [selectedParentId, contacts, loading, activeChat, selectingParent, isAdminOrPrincipal]);
 
-  // Refresh threads when refreshKey changes (e.g., after creating new chat)
+  // Refresh after creating a new chat; for teachers only we refetch threads here.
+  // Principals are refreshed by the parent page via use-principal-chats.
   useEffect(() => {
-    if (refreshKey && refreshKey > 0) {
-      console.log('🔄 Refreshing chat threads due to refreshKey:', refreshKey);
-      console.log('Current refreshKey:', refreshKey);
+    if (!refreshKey || refreshKey <= 0) return;
+    console.log('🔄 Refresh triggered (refreshKey):', refreshKey);
 
-      // Add a small delay to ensure the API has processed the new chat
+    if (!isAdminOrPrincipal) {
+      // Teacher flow: refetch own threads
       setTimeout(() => {
-        console.log('🚀 Calling fetchThreads after delay');
+        console.log('🚀 Teacher: fetching threads after delay');
         fetchThreads();
       }, 500);
-
-      // Clear any existing active chat selection to allow fresh loading
-      setActiveChat(null);
-      console.log('🧹 Cleared activeChat');
+      // Let existing selection persist; do not clear activeChat for stability
+    } else {
+      // Principal/Admin flow: no-op here; Messages page handles refresh via use-principal-chats
+      console.log('ℹ️ Principal/Admin: refresh handled upstream, skipping local fetch');
     }
-  }, [refreshKey, fetchThreads]);
+  }, [refreshKey, fetchThreads, isAdminOrPrincipal]);
 
   // Prevent auto-selection of first contact when we have a selectedParentId
   useEffect(() => {
@@ -1297,24 +1370,34 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
                         console.log('Is Admin/Principal:', isAdminOrPrincipal);
 
                         // Set active chat first
-                        setActiveChat(contact);
+                        if (!activeChat || activeChat.id !== contact.id) {
+                          setActiveChat(contact);
+                        }
                         console.log('ActiveChat set to:', contact);
 
                         // Set current thread ID for API message fetching
+        const fallbackThreadId = (contact.parentData && ('chat_info' in contact.parentData)
+          ? (contact.parentData as import('@/lib/api/messages').TeacherLinkedParent).chat_info?.thread_id
+          : null);
                         if (contact.threadData && contact.threadData.id) {
                           console.log('Setting thread ID:', contact.threadData.id);
                           setCurrentThreadId(contact.threadData.id);
+                        } else if (fallbackThreadId) {
+                          console.log('Setting fallback thread ID from parent chat_info:', fallbackThreadId);
+                          setCurrentThreadId(fallbackThreadId);
                           // Subscribe to WebSocket if available
                           if (websocket) {
-                            websocket.subscribeToThread(contact.threadData.id);
+                            websocket.subscribeToThread(fallbackThreadId);
                           }
                         } else {
                           console.log('No thread data or ID, clearing thread ID');
                           setCurrentThreadId(null);
                         }
 
-                        // Clear any existing messages when switching chats
-                        setMessages([]);
+                        // Clear messages only if switching to a different thread
+                        if (currentThreadId && ((contact.threadData && contact.threadData.id !== currentThreadId) || (!contact.threadData && currentThreadId))) {
+                          setMessages([]);
+                        }
                         console.log('Messages cleared, should trigger re-fetch');
                       }}
                     >
@@ -1323,6 +1406,15 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
                           <div className="w-12 h-12 rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center">
                             {getTypeIcon(contact.type)}
                           </div>
+                          {/* Principal-in-thread indicator */}
+                          {user?.role === 'principal' && contact.threadData?.participants?.some(p => p.user_id === user?.id) && (
+                            <div
+                              className="absolute -top-1 -left-1 w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center shadow"
+                              title="You are in this chat"
+                            >
+                              <UserCheck className="h-3 w-3" />
+                            </div>
+                          )}
                           {contact.isOnline && (
                             <div className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-green-500 border-2 border-background"></div>
                           )}
@@ -1400,10 +1492,12 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
                 </div>
                 <div>
                   <h2 className="font-medium text-sm">
-                    {activeChat.parentData ? activeChat.parentData.full_name :
-                     activeChat.principalData ? activeChat.principalData.full_name :
-                     activeChat.teacherData ? activeChat.teacherData.full_name :
-                     activeChat.name}
+                    {activeChat.threadData
+                      ? activeChat.name
+                      : activeChat.parentData ? activeChat.parentData.full_name
+                      : activeChat.principalData ? activeChat.principalData.full_name
+                      : activeChat.teacherData ? activeChat.teacherData.full_name
+                      : activeChat.name}
                   </h2>
                   {activeChat.parentData && 'linked_students' in activeChat.parentData ? (
                     activeChat.parentData.linked_students.length > 0 ? (
@@ -1465,6 +1559,17 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
                     <p className="text-sm text-muted-foreground">Loading chat...</p>
                   </div>
                 </div>
+              ) : messagesLoading ? (
+                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                  {[0,1,2,3,4,5].map((i) => (
+                    <div key={i} className={`flex ${i % 2 === 0 ? 'justify-start' : 'justify-end'}`}>
+                      <div className={`flex items-end gap-2 max-w-[85%] ${i % 2 === 0 ? 'flex-row' : 'flex-row-reverse'}`}>
+                        <div className="w-8 h-8 rounded-full bg-muted animate-pulse" />
+                        <div className={`rounded-2xl ${i % 2 === 0 ? 'rounded-bl-md' : 'rounded-br-md'} bg-muted animate-pulse h-6 ${i % 2 === 0 ? 'w-2/3' : 'w-1/2'}`}></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               ) : (
                 <>
                   {/* Sticky Date Header at Top */}
@@ -1499,19 +1604,23 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
              
                         <div className={`flex ${message.isOwn ? 'justify-end' : 'justify-start'} mb-3`}>
                           <div className={`flex items-end gap-2 max-w-[85%] ${message.isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
-                            {/* Avatar for group chats (others' messages only) */}
-                            {!message.isOwn && activeChat?.isGroup && (
-                              <div
-                                className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium select-none flex-shrink-0"
-                                style={{
-                                  backgroundColor: `hsl(${(Array.from(message.senderName).reduce((a,c)=>a+c.charCodeAt(0),0)%360)}, 80%, 90%)`,
-                                  color: `hsl(${(Array.from(message.senderName).reduce((a,c)=>a+c.charCodeAt(0),0)%360)}, 70%, 35%)`
-                                }}
-                                aria-hidden
-                              >
-                                {message.senderName?.split(' ').map(s=>s[0]).join('').slice(0,2).toUpperCase()}
-                              </div>
-                            )}
+                            {/* Avatar for all chats (sender avatar on respective side) */}
+                            {(() => {
+                              const nameForAvatar = message.isOwn ? (user?.full_name || 'Me') : (message.senderName || 'User');
+                              const hue = Array.from(nameForAvatar).reduce((a,c)=>a+c.charCodeAt(0),0)%360;
+                              const bg = `hsl(${hue}, 80%, 90%)`;
+                              const fg = `hsl(${hue}, 70%, 35%)`;
+                              const initials = nameForAvatar.split(' ').map(s=>s[0]).join('').slice(0,2).toUpperCase();
+                              return (
+                                <div
+                                  className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium select-none flex-shrink-0"
+                                  style={{ backgroundColor: bg, color: fg }}
+                                  aria-hidden
+                                >
+                                  {initials}
+                                </div>
+                              );
+                            })()}
 
                             <div className="flex flex-col max-w-full">
                               {/* Sender name for group chats */}
@@ -1567,17 +1676,17 @@ export function ChatInterface({ selectedParentId, isAdminOrPrincipal, chatsData,
             <div className="px-3 py-2 border-t shrink-0">
               <div className="flex items-center gap-2">
                 <Input
-                  placeholder={selectingParent ? "Loading chat..." : "Type a message..."}
+                  placeholder={selectingParent || messagesLoading ? "Loading chat..." : "Type a message..."}
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   onKeyDown={handleKeyPress}
                   className="flex-grow h-10 text-sm"
-                  disabled={selectingParent}
+                  disabled={selectingParent || messagesLoading}
                 />
                 <Button
                   size="sm"
                   onClick={handleSendMessage}
-                  disabled={!newMessage.trim() || selectingParent}
+                  disabled={!newMessage.trim() || selectingParent || messagesLoading}
                   className="h-10 w-10 p-0"
                 >
                   <Send className="h-4 w-4" />

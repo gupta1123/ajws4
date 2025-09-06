@@ -112,9 +112,9 @@ export default function HomeworkPage() {
       // Use subjects_taught directly from the teacher context (already filtered and unique)
       const subjects = teacherData.subjects_taught || [];
 
-      // Extract unique classes from secondary classes (subject teacher assignments)
+      // Build class list from all assigned classes (primary + secondary)
       const classes = Array.from(new Set(
-        (teacherData.secondary_classes || [])
+        (teacherData.assigned_classes || [])
           .map((assignment) => `${assignment.class_level} - Section ${assignment.division}`)
       ));
 
@@ -149,30 +149,26 @@ export default function HomeworkPage() {
     return () => window.removeEventListener('focus', handleFocus);
   }, [token, loading, fetchData]);
 
-  // Filter homework based on search term, filters, and teacher assignments
+  // Filter homework based on search term and selected filters
   useEffect(() => {
-    // First filter by teacher's assigned classes and subjects
-    const filteredByTeacher = homework.filter(hw => {
-      const classKey = `${hw.class_division.level.name} - Section ${hw.class_division.division}`;
-      return teacherClasses.includes(classKey) && 
-             (teacherSubjects.includes(hw.subject) || teacherSubjects.length === 0);
+    const filtered = homework.filter((assignment: Homework) => {
+      const classKey = `${assignment.class_division.level.name} - Section ${assignment.class_division.division}`;
+      const matchesSearch = (
+        assignment.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        assignment.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        classKey.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      const matchesClass = selectedClass === 'all' || classKey === selectedClass;
+      const matchesSubject = selectedSubject === 'all' || assignment.subject === selectedSubject;
+      return matchesSearch && matchesClass && matchesSubject;
     });
 
-    // Then apply search and filter criteria
-    const filtered = filteredByTeacher.filter((assignment: Homework) =>
-      (assignment.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      assignment.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              `${assignment.class_division.level.name} - Section ${assignment.class_division.division}`.toLowerCase().includes(searchTerm.toLowerCase())) &&
-      (selectedClass === 'all' || `${assignment.class_division.level.name} - Section ${assignment.class_division.division}` === selectedClass)
-    );
-
-    // Sort filtered results by due_date in descending order (newest first)
     const sortedFiltered = filtered.sort((a, b) =>
       new Date(b.due_date).getTime() - new Date(a.due_date).getTime()
     );
 
     setFilteredHomework(sortedFiltered);
-  }, [homework, teacherClasses, teacherSubjects, searchTerm, selectedSubject, selectedClass]);
+  }, [homework, searchTerm, selectedSubject, selectedClass]);
 
   // Debug: Log authentication state
   console.log('Auth state:', { user, token: !!token, isAuthenticated, authLoading });
@@ -249,11 +245,51 @@ export default function HomeworkPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-2 text-gray-600">Loading homework...</p>
-        </div>
+      <div className="space-y-6">
+        <div className="h-10 w-48 bg-muted animate-pulse rounded" />
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex flex-col md:flex-row gap-4 items-center">
+              <div className="h-10 w-full bg-muted animate-pulse rounded" />
+              <div className="flex gap-2 w-full md:w-auto">
+                <div className="h-10 w-[140px] bg-muted animate-pulse rounded" />
+                <div className="h-10 w-[140px] bg-muted animate-pulse rounded" />
+              </div>
+              <div className="h-10 w-40 bg-muted animate-pulse rounded" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <div className="h-6 w-64 bg-muted animate-pulse rounded mb-2" />
+            <div className="h-4 w-48 bg-muted animate-pulse rounded" />
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border">
+              <div className="grid grid-cols-12 gap-3 p-4 border-b">
+                <div className="col-span-3 h-4 bg-muted animate-pulse rounded" />
+                <div className="col-span-3 h-4 bg-muted animate-pulse rounded" />
+                <div className="col-span-3 h-4 bg-muted animate-pulse rounded" />
+                <div className="col-span-2 h-4 bg-muted animate-pulse rounded" />
+                <div className="col-span-1 h-4 bg-muted animate-pulse rounded" />
+              </div>
+              <div className="divide-y">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="grid grid-cols-12 gap-3 p-4">
+                    <div className="col-span-3 h-4 bg-muted animate-pulse rounded" />
+                    <div className="col-span-3 space-y-2">
+                      <div className="h-4 bg-muted animate-pulse rounded" />
+                      <div className="h-3 w-2/3 bg-muted animate-pulse rounded" />
+                    </div>
+                    <div className="col-span-3 h-4 bg-muted animate-pulse rounded" />
+                    <div className="col-span-2 h-4 bg-muted animate-pulse rounded" />
+                    <div className="col-span-1 h-8 bg-muted animate-pulse rounded" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -307,11 +343,9 @@ export default function HomeworkPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <Button asChild size="lg">
-                <Link href="/homework/create">
-                  <Plus className="mr-2 h-5 w-5" />
-                  Create Homework
-                </Link>
+              <Button size="lg" onClick={() => router.push('/homework/create')}>
+                <Plus className="mr-2 h-5 w-5" />
+                Create Homework
               </Button>
 
             </div>
@@ -362,10 +396,14 @@ export default function HomeworkPage() {
                       </TableCell>
 
                       <TableCell className="text-right">
-                        <Button variant="outline" size="sm" className="mr-2" asChild>
-                          <Link href={`/homework/edit/${assignment.id}`}>
-                            <Edit className="h-4 w-4" />
-                          </Link>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mr-2"
+                          onClick={() => router.push(`/homework/edit/${assignment.id}`)}
+                          title="Edit Homework"
+                        >
+                          <Edit className="h-4 w-4" />
                         </Button>
                         <Button 
                           variant="outline" 
@@ -389,11 +427,9 @@ export default function HomeworkPage() {
                   {searchTerm ? 'No homework matches your search.' : 'You haven\'t created any homework yet.'}
                 </p>
                 <div className="mt-6">
-                  <Button asChild>
-                    <Link href="/homework/create">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Create Homework
-                    </Link>
+                  <Button onClick={() => router.push('/homework/create')}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create Homework
                   </Button>
                 </div>
               </div>

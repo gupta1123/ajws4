@@ -24,10 +24,12 @@ import {
   AlertCircle,
   X
 } from 'lucide-react';
-import { 
+import {
   TeacherLinkedParent,
   startConversation,
-  StartConversationPayload
+  StartConversationPayload,
+  checkExistingThread,
+  CheckExistingThreadPayload
 } from '@/lib/api/messages';
 import { useAuth } from '@/lib/auth/context';
 import { useToast } from '@/hooks/use-toast';
@@ -101,6 +103,22 @@ export function CreateGroupModal({ open, onOpenChange, onGroupCreated }: CreateG
     try {
       setCreating(true);
       setError(null);
+      // First, check if a matching group thread already exists
+      const checkPayload: CheckExistingThreadPayload = {
+        participants: selectedParents,
+        thread_type: 'group',
+      };
+      const check = await checkExistingThread(checkPayload, token);
+
+      if (check && typeof check === 'object' && 'status' in check && check.status === 'success' && 'data' in check && check.data && typeof check.data === 'object' && 'exists' in check.data && 'thread' in check.data) {
+        const checkData = check.data as unknown as { exists: boolean; thread?: { id: string } };
+        if (checkData.exists && checkData.thread?.id) {
+          // Open the existing group
+          onGroupCreated(checkData.thread.id);
+          onOpenChange(false);
+          return;
+        }
+      }
 
       const payload: StartConversationPayload = {
         participants: selectedParents,

@@ -61,9 +61,10 @@ interface ParentLinkingProps {
   }>;
   studentAdmissionNumber?: string;
   relationship?: string;
+  onParentCreatedAndLinked?: () => void;
 }
 
-export function ParentLinking({ onLinkParent, onCancel, existingParentMappings = [], studentAdmissionNumber, relationship }: ParentLinkingProps) {
+export function ParentLinking({ onLinkParent, onCancel, existingParentMappings = [], studentAdmissionNumber, relationship, onParentCreatedAndLinked }: ParentLinkingProps) {
   const { token } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [searchType, setSearchType] = useState<'name' | 'phone' | 'email'>('name');
@@ -222,6 +223,12 @@ export function ParentLinking({ onLinkParent, onCancel, existingParentMappings =
     fetchParents();
     // Optionally select the newly created parent
     setSelectedParentId(parentId);
+    // The create modal also links the parent when student details are provided.
+    // Inform parent to refresh student data and close this wizard.
+    if (onParentCreatedAndLinked) {
+      onParentCreatedAndLinked();
+    }
+    onCancel();
   };
 
   const handleParentSelect = (parentId: string) => {

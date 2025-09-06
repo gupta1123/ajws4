@@ -6,6 +6,8 @@ import { useState, useEffect } from 'react';
 import { ChatInterface } from '@/components/messages/chat-interface';
 import { StartNewChatModal } from '@/components/messages/start-new-chat-modal';
 import { StartNewChatAdminModal } from '@/components/messages/start-new-chat-admin-modal';
+import { StartNewChatParentAdminModal } from '@/components/messages/start-new-chat-parent-admin-modal';
+import { StartChatParentsByClassModal } from '@/components/messages/start-chat-parents-by-class-modal';
 import { StartChatTeacherModal } from '@/components/messages/start-chat-teacher-modal';
 import { useToast } from '@/hooks/use-toast';
 import { checkExistingThread, startConversation } from '@/lib/api/messages';
@@ -22,21 +24,37 @@ import { Calendar as CalendarComponent } from '@/components/ui/date-picker/calen
 
 export default function MessagesPage() {
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
+  const [pageLoading, setPageLoading] = useState(true);
   const [isStartNewChatModalOpen, setIsStartNewChatModalOpen] = useState(false);
   const [isStartNewChatAdminModalOpen, setIsStartNewChatAdminModalOpen] = useState(false);
+  const [isStartNewChatParentAdminModalOpen, setIsStartNewChatParentAdminModalOpen] = useState(false);
+  const [isStartChatParentsByClassOpen, setIsStartChatParentsByClassOpen] = useState(false);
   const [isStartChatTeacherModalOpen, setIsStartChatTeacherModalOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
 
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
 
   // Hooks for admin/principal functionality
-  const { chatsData, loading, error, filters, updateFilters } = usePrincipalChats();
+  const { chatsData, loading, error, filters, updateFilters, refreshChats } = usePrincipalChats();
   const { classDivisionsList } = useClassDivisions();
 
   const isAdminOrPrincipal = user?.role === 'admin' || user?.role === 'principal';
+
+  // Page-level skeleton loader
+  useEffect(() => {
+    if (isAdminOrPrincipal) {
+      // Use hook loading state for admin/principal skeleton
+      setPageLoading(loading);
+    } else {
+      // Brief initial skeleton for teachers
+      const t = setTimeout(() => setPageLoading(false), 600);
+      return () => clearTimeout(t);
+    }
+  }, [isAdminOrPrincipal, loading]);
 
 
   const handleParentSelected = (parent: { parent_id: string; full_name: string }) => {
@@ -71,9 +89,9 @@ export default function MessagesPage() {
       // Check if a thread already exists between admin/principal and the teacher
 
       const checkResp = await checkExistingThread({
-        participants: [user.id, teacher.user_id],
+        participants: [teacher.user_id],
         thread_type: 'direct',
-      }, undefined);
+      }, token || undefined);
 
       let threadId: string | null = null;
       if (checkResp && typeof checkResp === 'object' && 'status' in checkResp && checkResp.status === 'success' && 'data' in checkResp && checkResp.data) {
@@ -90,7 +108,7 @@ export default function MessagesPage() {
           message_content: `Hello ${teacher.full_name}`,
           thread_type: 'direct',
           title: `Chat with ${teacher.full_name}`,
-        }, undefined);
+        }, token || undefined);
 
         if (startResp && typeof startResp === 'object' && 'status' in startResp && startResp.status === 'success' && 'data' in startResp && startResp.data) {
           const data = startResp.data as unknown as { thread: { id: string } };
@@ -101,7 +119,11 @@ export default function MessagesPage() {
       if (threadId) {
         // Trigger refresh and select the created/found thread
         setRefreshKey(prev => prev + 1);
+        if (isAdminOrPrincipal) {
+          refreshChats();
+        }
         setSelectedParentId(threadId);
+        setSelectedThreadId(threadId);
         toast({ title: 'Chat Ready', description: `Opening conversation with ${teacher.full_name}` });
       } else {
         throw new Error('Failed to open or create chat');
@@ -118,6 +140,10 @@ export default function MessagesPage() {
 
     // Trigger a refresh of the chat interface to show the new thread
     setRefreshKey(prev => prev + 1);
+
+    // Actively select the opened/created thread so it focuses immediately
+    setSelectedParentId(threadId);
+    setSelectedThreadId(threadId);
 
     // Show appropriate success toast based on whether it's existing or new
     if (isExisting) {
@@ -137,16 +163,28 @@ export default function MessagesPage() {
     console.log(`Teacher ${isExisting ? 'opened existing' : 'created new'} chat with thread ID:`, threadId);
   };
 
+  const handleParentThreadReady = (threadId: string) => {
+    setIsStartNewChatParentAdminModalOpen(false);
+    setRefreshKey(prev => prev + 1);
+    if (isAdminOrPrincipal) {
+      refreshChats();
+    }
+    setSelectedParentId(threadId);
+    setSelectedThreadId(threadId);
+    toast({ title: 'Chat Ready', description: 'Opening conversation with parent' });
+  };
+
   // Clear selected parent ID after the chat interface has had time to process it
   useEffect(() => {
-    if (refreshKey > 0 && selectedParentId) {
+    if (refreshKey > 0 && (selectedParentId || selectedThreadId)) {
       // Give more time for the chat interface to load and select the parent
       const timer = setTimeout(() => {
         setSelectedParentId(null);
+        setSelectedThreadId(null);
       }, 2000); // Increased from 1000ms to 2000ms to ensure proper loading
       return () => clearTimeout(timer);
     }
-  }, [refreshKey, selectedParentId]);
+  }, [refreshKey, selectedParentId, selectedThreadId]);
 
 
 
@@ -155,10 +193,7 @@ export default function MessagesPage() {
     updateFilters({ class_division_id: classDivisionId === 'all' ? undefined : classDivisionId });
   };
 
-  // Handle includes me filter change
-  const handleIncludesMeChange = (includesMe: string) => {
-    updateFilters({ includes_me: includesMe as 'all' | 'yes' | 'no' });
-  };
+  // Participation filter removed; default includes_me is always 'yes'
 
 
 
@@ -168,7 +203,7 @@ export default function MessagesPage() {
     setEndDate(undefined);
     updateFilters({
       chat_type: 'all',
-      includes_me: 'all',
+      includes_me: 'yes',
       class_division_id: undefined,
       start_date: undefined,
       end_date: undefined
@@ -177,17 +212,28 @@ export default function MessagesPage() {
 
   // Check if any filters are active
   const hasActiveFilters = filters.chat_type !== 'all' || 
-                          filters.includes_me !== 'all' || 
+                          filters.includes_me !== 'yes' || 
                           filters.class_division_id || 
                           startDate || 
                           endDate;
 
-  if (isAdminOrPrincipal && loading) {
+  if (pageLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-gray-600">Loading chats...</p>
+        <div className="w-full max-w-6xl px-4">
+          <div className="mb-6 h-10 w-48 bg-muted animate-pulse rounded" />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-1 space-y-3">
+              <div className="h-10 bg-muted animate-pulse rounded" />
+              <div className="h-10 bg-muted animate-pulse rounded" />
+              <div className="h-10 bg-muted animate-pulse rounded" />
+            </div>
+            <div className="lg:col-span-2 space-y-3">
+              <div className="h-12 bg-muted animate-pulse rounded" />
+              <div className="h-64 bg-muted animate-pulse rounded" />
+              <div className="h-12 bg-muted animate-pulse rounded" />
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -215,12 +261,13 @@ export default function MessagesPage() {
         {/* Action Buttons */}
         {isAdminOrPrincipal && (
           <div className="flex justify-end gap-2">
-            <Button
-              variant="outline"
-              onClick={() => isAdminOrPrincipal ? setIsStartNewChatAdminModalOpen(true) : setIsStartNewChatModalOpen(true)}
-            >
+            <Button variant="outline" onClick={() => setIsStartNewChatAdminModalOpen(true)}>
               <MessageSquare className="mr-2 h-4 w-4" />
-              Start New Chat
+              Start Chat with Teacher
+            </Button>
+            <Button variant="outline" onClick={() => setIsStartChatParentsByClassOpen(true)}>
+              <MessageSquare className="mr-2 h-4 w-4" />
+              Start Chat with Parents
             </Button>
           </div>
         )}
@@ -275,33 +322,7 @@ export default function MessagesPage() {
                 </Select>
               </div>
 
-              {/* Includes Me Filter */}
-              <div className="space-y-2">
-                <Label className="text-xs font-medium text-muted-foreground">Participation</Label>
-                <Select
-                  onValueChange={handleIncludesMeChange}
-                  defaultValue="all"
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="All Chats" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Chats</SelectItem>
-                    <SelectItem value="yes">
-                      <div className="flex items-center gap-2">
-                        <UserCheck className="h-4 w-4" />
-                        Includes Me
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="no">
-                      <div className="flex items-center gap-2">
-                        <UserX className="h-4 w-4" />
-                        Excludes Me
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Participation filter removed: default includes_me = 'yes' */}
 
               {/* Start Date Filter */}
               <div className="space-y-2">
@@ -387,6 +408,7 @@ export default function MessagesPage() {
       {/* Chat Interface */}
       <ChatInterface
         selectedParentId={selectedParentId || undefined}
+        selectedThreadId={selectedThreadId || undefined}
         isAdminOrPrincipal={isAdminOrPrincipal}
         chatsData={chatsData || undefined}
         refreshKey={refreshKey}
@@ -405,6 +427,27 @@ export default function MessagesPage() {
         open={isStartNewChatAdminModalOpen}
         onOpenChange={setIsStartNewChatAdminModalOpen}
         onTeacherSelected={handleTeacherSelected}
+      />
+
+      {/* Start New Chat Parent (Admin/Principal) Modal */}
+      <StartNewChatParentAdminModal
+        open={isStartNewChatParentAdminModalOpen}
+        onOpenChange={setIsStartNewChatParentAdminModalOpen}
+        onParentThreadReady={handleParentThreadReady}
+      />
+
+      {/* Start Chat Parents By Class (Admin/Principal) */}
+      <StartChatParentsByClassModal
+        open={isStartChatParentsByClassOpen}
+        onOpenChange={setIsStartChatParentsByClassOpen}
+        onThreadReady={(threadId) => {
+          setIsStartChatParentsByClassOpen(false);
+          setRefreshKey(prev => prev + 1);
+          if (isAdminOrPrincipal) refreshChats();
+          setSelectedParentId(threadId);
+          setSelectedThreadId(threadId);
+          toast({ title: 'Chat Ready', description: 'Opening conversation' });
+        }}
       />
 
       {/* Start Chat Teacher Modal */}

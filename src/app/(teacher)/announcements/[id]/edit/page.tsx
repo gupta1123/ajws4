@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Save, BookOpen, AlertCircle, Calendar, Users, Star, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Save, BookOpen, AlertCircle, Calendar, Users, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -31,8 +31,6 @@ const priorities = [
 const targetRoles = [
   { value: 'teacher', label: 'Teachers' },
   { value: 'parent', label: 'Parents' },
-  { value: 'student', label: 'Students' },
-  { value: 'admin', label: 'Administrators' },
 ];
 
 
@@ -57,7 +55,6 @@ export default function EditAnnouncementPage() {
     publish_time: '09:00',
     expires_date: '',
     expires_time: '17:00',
-    is_featured: false,
   });
 
   // Check if user can edit this announcement
@@ -96,7 +93,6 @@ export default function EditAnnouncementPage() {
               publish_time: publishDate.toTimeString().slice(0, 5),
               expires_date: expiresDate.toISOString().split('T')[0],
               expires_time: expiresDate.toTimeString().slice(0, 5),
-              is_featured: fetchedAnnouncement.is_featured || false,
             });
           }
         } else {
@@ -150,7 +146,6 @@ export default function EditAnnouncementPage() {
         target_classes: formData.target_classes,
         publish_at: new Date(`${formData.publish_date}T${formData.publish_time}`).toISOString(),
         expires_at: new Date(`${formData.expires_date}T${formData.expires_time}`).toISOString(),
-        is_featured: formData.is_featured,
       };
 
       const response = await fetch(`https://ajws-school-ba8ae5e3f955.herokuapp.com/api/announcements/${params.id}`, {
@@ -192,10 +187,7 @@ export default function EditAnnouncementPage() {
     }));
   };
 
-  const getTypeIcon = (type: string) => {
-    const typeData = announcementTypes.find(t => t.value === type);
-    return typeData ? typeData.icon : BookOpen;
-  };
+  // Removed type preview helper as preview card is no longer shown
 
   // Check permissions after data is loaded
   useEffect(() => {
@@ -472,30 +464,6 @@ export default function EditAnnouncementPage() {
 
         {/* Sidebar */}
         <div className="space-y-6">
-          {/* Type Preview */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                {React.createElement(getTypeIcon(formData.announcement_type), { className: "w-5 h-5" })}
-                Type Preview
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Badge variant="outline">
-                  {announcementTypes.find(t => t.value === formData.announcement_type)?.label}
-                </Badge>
-                <Badge className={priorities.find(p => p.value === formData.priority)?.color}>
-                  {formData.priority.charAt(0).toUpperCase() + formData.priority.slice(1)}
-                </Badge>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {announcementTypes.find(t => t.value === formData.announcement_type)?.description}
-              </p>
-            </CardContent>
-          </Card>
-
-
           {/* Actions */}
           <Card>
             <CardContent className="pt-6">

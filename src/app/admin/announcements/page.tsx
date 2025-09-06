@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, AlertCircle, CheckCircle, XCircle, Clock, Eye, MessageSquare, BookOpen, Star, Plus } from 'lucide-react';
+import { Search, AlertCircle, CheckCircle, XCircle, Clock, Eye, MessageSquare, BookOpen, Plus, Star } from 'lucide-react';
+import { formatDate } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -496,9 +497,6 @@ export default function AdminAnnouncementsPage() {
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <span className="font-medium">{announcement.title}</span>
-                            {announcement.is_featured && (
-                              <Star className="w-4 h-4 text-yellow-500 fill-current" />
-                            )}
                           </div>
                         </TableCell>
                         <TableCell>

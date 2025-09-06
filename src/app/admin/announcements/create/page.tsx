@@ -31,8 +31,6 @@ const priorities = [
 const targetRoles = [
   { value: 'teacher', label: 'Teachers' },
   { value: 'parent', label: 'Parents' },
-  { value: 'student', label: 'Students' },
-  { value: 'admin', label: 'Administrators' },
 ];
 
 export default function AdminCreateAnnouncementPage() {
@@ -50,6 +48,7 @@ export default function AdminCreateAnnouncementPage() {
     academic_year: string;
   }>>([]);
   const [classesLoading, setClassesLoading] = useState(false);
+  const [scope, setScope] = useState<'school' | 'classes'>('school');
 
   // Form state
   const [formData, setFormData] = useState({
@@ -94,7 +93,7 @@ export default function AdminCreateAnnouncementPage() {
         announcement_type: formData.announcement_type as 'notification' | 'circular' | 'general',
         priority: formData.priority as 'low' | 'high',
         target_roles: formData.target_roles,
-        target_classes: formData.target_classes,
+        target_classes: scope === 'classes' ? formData.target_classes : [],
         publish_at: new Date(`${formData.publish_date}T${formData.publish_time}`).toISOString(),
         expires_at: new Date(`${formData.expires_date}T${formData.expires_time}`).toISOString(),
       };
@@ -198,17 +197,21 @@ export default function AdminCreateAnnouncementPage() {
     }));
   };
 
-  // Fetch classes when students are selected
+  // Fetch classes when scope is 'classes'
   useEffect(() => {
-    if (formData.target_roles.includes('student') && availableClasses.length === 0) {
+    if (scope === 'classes' && availableClasses.length === 0) {
       fetchAvailableClasses();
     }
-  }, [formData.target_roles, availableClasses.length]); // Removed fetchAvailableClasses from dependencies to prevent infinite loop
+  }, [scope, availableClasses.length]); // Removed fetchAvailableClasses from dependencies to prevent infinite loop
 
-  const getTypeIcon = (type: string) => {
-    const typeData = announcementTypes.find(t => t.value === type);
-    return typeData ? typeData.icon : BookOpen;
-  };
+  // Clear classes when switching to school-wide
+  useEffect(() => {
+    if (scope === 'school' && formData.target_classes.length > 0) {
+      setFormData(prev => ({ ...prev, target_classes: [] }));
+    }
+  }, [scope]);
+
+  // Removed type preview helper as preview card is no longer shown
 
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">
@@ -382,6 +385,19 @@ export default function AdminCreateAnnouncementPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Scope selection */}
+              <div className="space-y-2">
+                <Label>Scope</Label>
+                <div className="flex gap-2">
+                  <Button type="button" variant={scope === 'school' ? 'default' : 'outline'} size="sm" onClick={() => setScope('school')}>
+                    School-wide
+                  </Button>
+                  <Button type="button" variant={scope === 'classes' ? 'default' : 'outline'} size="sm" onClick={() => setScope('classes')}>
+                    Specific classes
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">Leave classes empty for school-wide; select classes to target specific divisions.</p>
+              </div>
               <div className="space-y-3">
                 <Label>Target Roles *</Label>
                 <div className="flex flex-wrap gap-2">
@@ -402,8 +418,8 @@ export default function AdminCreateAnnouncementPage() {
                 </p>
               </div>
 
-              {/* Class Selection - Only show when students are selected */}
-              {formData.target_roles.includes('student') && (
+              {/* Class Selection - show when scope is 'classes' */}
+              {scope === 'classes' && (
                 <div className="space-y-3 border-t pt-4">
                   <Label>Target Classes (Optional)</Label>
                   {classesLoading ? (
@@ -457,31 +473,6 @@ export default function AdminCreateAnnouncementPage() {
 
         {/* Sidebar */}
         <div className="space-y-6">
-          {/* Type Preview */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                {React.createElement(getTypeIcon(formData.announcement_type), { className: "w-5 h-5" })}
-                Type Preview
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Badge variant="outline">
-                  {announcementTypes.find(t => t.value === formData.announcement_type)?.label}
-                </Badge>
-                <Badge className={priorities.find(p => p.value === formData.priority)?.color}>
-                  {formData.priority.charAt(0).toUpperCase() + formData.priority.slice(1)}
-                </Badge>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {announcementTypes.find(t => t.value === formData.announcement_type)?.description}
-              </p>
-            </CardContent>
-          </Card>
-
-
-
           {/* Actions */}
           <Card>
             <CardContent className="pt-6">

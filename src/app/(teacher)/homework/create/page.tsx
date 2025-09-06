@@ -58,6 +58,7 @@ export default function CreateHomeworkPage() {
     due_date: ''
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploadingFlow, setIsUploadingFlow] = useState(false);
   const [classDivisions, setClassDivisions] = useState<TransformedClass[]>([]);
   const [loadingClasses, setLoadingClasses] = useState(true);
   const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
@@ -113,8 +114,9 @@ export default function CreateHomeworkPage() {
         setLoadingClasses(false);
       }
     };
-
-  }, [teacherData]);
+    // Invoke the fetch function when teacher data changes
+    fetchClassDivisions();
+  }, [teacherData, token]);
 
   // Debug: Log authentication state
   console.log('Auth state:', { user, token: !!token, isAuthenticated, authLoading });
@@ -175,34 +177,70 @@ export default function CreateHomeworkPage() {
     setSelectedFiles(files);
   };
 
-  const handleUploadFiles = async (files: File[]) => {
-    if (!homeworkId || files.length === 0) return;
-    
+  const handleUploadFiles = async (files: File[], overrideHomeworkId?: string) => {
+    if (!files || files.length === 0) return;
+    setIsUploadingFlow(true);
 
-    
     try {
-      const response = await homeworkServices.uploadAttachments(homeworkId, files, token || '');
-      
-      if (response.status === 'success') {
+      let targetId = overrideHomeworkId || homeworkId;
+
+      // If there is no homework yet, create one first so we can upload attachments
+      if (!targetId) {
+        // Basic validation to ensure we can create a homework draft
+        if (!formData.class_division_id || !formData.subject || !formData.title || !formData.due_date) {
+          toast({
+            title: 'Missing details',
+            description: 'Please select class, subject, title, and due date before uploading.',
+            variant: 'error',
+          });
+          return;
+        }
+
+        const due = new Date(formData.due_date);
+        due.setHours(23, 59, 59, 999);
+
+        const createPayload = {
+          ...formData,
+          description: formData.description || '',
+          due_date: due.toISOString(),
+        };
+
+        const createResp = await homeworkServices.createHomework(createPayload, token || '');
+        if (createResp.status !== 'success' || !createResp.data?.homework?.id) {
+          throw new Error(createResp.message || 'Failed to create homework for upload');
+        }
+        targetId = createResp.data.homework.id;
+        setHomeworkId(targetId);
+
+        // Inform user we created the homework to attach files
         toast({
-          title: "Success",
-          description: `${files.length} file(s) uploaded successfully!`,
-          variant: "success",
+          title: 'Homework draft created',
+          description: 'Uploading your attachments now...',
+          variant: 'success',
         });
-        // Clear selected files after successful upload
+      }
+
+      // Proceed with upload
+      const uploadResp = await homeworkServices.uploadAttachments(targetId, files, token || '');
+      if (uploadResp.status === 'success') {
+        toast({
+          title: 'Upload complete',
+          description: `${files.length} file(s) uploaded successfully!`,
+          variant: 'success',
+        });
         setSelectedFiles([]);
       } else {
-        throw new Error(response.message || 'Failed to upload files');
+        throw new Error(uploadResp.message || 'Failed to upload files');
       }
     } catch (error) {
-      console.error('Error uploading files:', error);
+      console.error('Error during upload flow:', error);
       toast({
-        title: "Error",
-        description: "Failed to upload files. Please try again.",
-        variant: "error",
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Upload failed',
+        variant: 'error',
       });
     } finally {
-
+      setIsUploadingFlow(false);
     }
   };
 
@@ -220,8 +258,19 @@ export default function CreateHomeworkPage() {
         due_date: dueDate.toISOString()
       };
 
+      // If we already created a homework during upload, just update it now
+      if (homeworkId) {
+        const response = await homeworkServices.updateHomework(homeworkId, payload, token || '');
+        if (response.status === 'success') {
+          toast({ title: 'Success', description: 'Homework updated successfully!', variant: 'success' });
+          router.push('/homework');
+        } else {
+          throw new Error(response.message || 'Failed to update homework');
+        }
+        return;
+      }
+
       const response = await homeworkServices.createHomework(payload, token || '');
-      
       if (response.status === 'success') {
         toast({
           title: "Success",
@@ -231,11 +280,12 @@ export default function CreateHomeworkPage() {
         
         // Store the homework ID for file uploads
         if (response.data?.homework?.id) {
-          setHomeworkId(response.data.homework.id);
+          const newId = response.data.homework.id;
+          setHomeworkId(newId);
           
           // If files were selected, upload them now
           if (selectedFiles.length > 0) {
-            await handleUploadFiles(selectedFiles);
+            await handleUploadFiles(selectedFiles, newId);
             // After file upload, redirect to homework page
             router.push('/homework');
           } else {
@@ -303,9 +353,9 @@ export default function CreateHomeworkPage() {
                       </SelectTrigger>
                       <SelectContent>
                         {loadingClasses ? (
-                          <SelectItem value="" disabled>Loading classes...</SelectItem>
+                          <SelectItem value="loading-classes" disabled>Loading classes...</SelectItem>
                         ) : classDivisions.length === 0 ? (
-                          <SelectItem value="" disabled>No classes found</SelectItem>
+                          <SelectItem value="no-classes" disabled>No classes found</SelectItem>
                         ) : (
                           classDivisions.map((division, index) => (
                             <SelectItem key={`${division.id}-${division.division}-${index}`} value={division.id}>
@@ -328,7 +378,7 @@ export default function CreateHomeworkPage() {
                       </SelectTrigger>
                       <SelectContent>
                         {availableSubjects.length === 0 ? (
-                          <SelectItem value="" disabled>No subjects assigned</SelectItem>
+                          <SelectItem value="no-subjects" disabled>No subjects assigned</SelectItem>
                         ) : (
                           availableSubjects.map((subject, index) => (
                             <SelectItem key={`${subject}-${index}`} value={subject}>
@@ -386,11 +436,11 @@ export default function CreateHomeworkPage() {
                   <Label>Attachments (Optional)</Label>
                   <FileUploader
                     onFilesSelected={handleFilesSelected}
-                    onUpload={handleUploadFiles}
                     accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif"
                     maxFiles={5}
                     maxSize={10}
                     className="border-0 shadow-none"
+                    hideUploadButton
                   />
                   <p className="text-xs text-muted-foreground">
                     Supported formats: PDF, Word documents, text files, and images. Max 5 files, 10MB each.
@@ -402,12 +452,12 @@ export default function CreateHomeworkPage() {
                   type="button" 
                   variant="outline" 
                   onClick={() => router.back()}
-                  disabled={isLoading}
+                  disabled={isLoading || isUploadingFlow}
                 >
                   <X className="mr-2 h-4 w-4" />
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isLoading}>
+                <Button type="submit" disabled={isLoading || isUploadingFlow}>
                   {isLoading ? 'Creating...' : 'Create Homework'}
                 </Button>
               </CardFooter>

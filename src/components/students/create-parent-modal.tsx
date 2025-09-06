@@ -34,6 +34,13 @@ export function CreateParentModal({ isOpen, onClose, onSuccess, studentAdmission
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
+    // Sanitize and limit phone number to digits with max length 10
+    if (name === 'phone_number') {
+      const digitsOnly = value.replace(/\D/g, '').slice(0, 10);
+      setFormData(prev => ({ ...prev, phone_number: digitsOnly }));
+      return;
+    }
+
     setFormData(prev => ({
       ...prev,
       [name]: value
@@ -44,13 +51,21 @@ export function CreateParentModal({ isOpen, onClose, onSuccess, studentAdmission
     e.preventDefault();
     if (!token) return;
 
-    setIsLoading(true);
     setError(null);
+
+    // Validate phone number: exactly 10 digits
+    const phoneDigits = formData.phone_number.replace(/\D/g, '');
+    if (phoneDigits.length !== 10) {
+      setError('Phone number must be exactly 10 digits');
+      return;
+    }
+
+    setIsLoading(true);
 
     try {
       const parentData: CreateParentRequest = {
         full_name: formData.full_name.trim(),
-        phone_number: formData.phone_number.trim(),
+        phone_number: phoneDigits,
         email: formData.email.trim() || '',
         initial_password: formData.initial_password.trim(),
         ...(studentAdmissionNumber && relationship && {
@@ -159,6 +174,8 @@ export function CreateParentModal({ isOpen, onClose, onSuccess, studentAdmission
                 className="pl-10"
                 required
                 disabled={isLoading}
+                inputMode="numeric"
+                maxLength={10}
               />
             </div>
           </div>

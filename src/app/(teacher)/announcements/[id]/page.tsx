@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Star, Calendar, Users, BookOpen, AlertCircle, CheckCircle, XCircle, Clock, Edit, Trash2 } from 'lucide-react';
+import { ArrowLeft, Calendar, Users, BookOpen, AlertCircle, CheckCircle, XCircle, Clock, Edit, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -278,9 +278,6 @@ export default function AnnouncementViewPage() {
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-2">
               <h1 className="text-3xl font-bold tracking-tight">{announcement.title}</h1>
-              {announcement.is_featured && (
-                <Star className="w-6 h-6 text-yellow-500 fill-current" />
-              )}
               {/* Status Badge - Moved to top right area */}
               <div className="ml-auto">
                 <Badge className={`${getStatusColor(announcement.status)} px-3 py-1`}>
