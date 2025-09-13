@@ -290,7 +290,7 @@ export function ChatInterface({ selectedParentId, selectedThreadId, isAdminOrPri
   const lastSelectedThreadIdRef = useRef<string | null>(null);
 
   // Hooks for real API data - only fetch messages for teachers, not principals
-  const { messages: apiMessages, loading: messagesLoading } = useChatMessages(currentThreadId);
+  const { messages: apiMessages, loading: messagesLoading, refreshMessages } = useChatMessages(currentThreadId);
 
 
 
@@ -485,6 +485,21 @@ export function ChatInterface({ selectedParentId, selectedThreadId, isAdminOrPri
     }
   }, [apiMessages, user, currentThreadId, isAdminOrPrincipal]);
 
+  // Polling fallback: ensure messages refresh while a thread is open
+  useEffect(() => {
+    if (!currentThreadId || !token) return;
+    let cancelled = false;
+    const interval = setInterval(() => {
+      if (!cancelled) {
+        refreshMessages(true); // silent refresh to avoid flicker
+      }
+    }, 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [currentThreadId, token, refreshMessages]);
+
   // Fetch teacher-linked parents data (only for teachers)
   const fetchParents = useCallback(async () => {
     if (!token) {
@@ -612,6 +627,37 @@ export function ChatInterface({ selectedParentId, selectedThreadId, isAdminOrPri
       fetchThreads();
     }
   }, [token, user, isAdminOrPrincipal, fetchThreads]);
+
+  // Keep teacher thread list fresh so side list updates
+  useEffect(() => {
+    if (isAdminOrPrincipal) return;
+    let cancelled = false;
+    const interval = setInterval(() => {
+      if (!cancelled) {
+        fetchThreads();
+      }
+    }, 10000); // Refresh threads every 10s for teachers
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [isAdminOrPrincipal, fetchThreads]);
+
+  // When fresh messages load, update the active contact preview
+  useEffect(() => {
+    if (!activeChat || !currentThreadId || messages.length === 0) return;
+    const last = messages[messages.length - 1];
+    setContacts(prev => prev.map(c => {
+      if (c.threadData?.id === currentThreadId) {
+        return {
+          ...c,
+          lastMessage: last.content,
+          lastMessageTime: getDateLabel(last.created_at || last.timestamp)
+        };
+      }
+      return c;
+    }));
+  }, [messages, activeChat, currentThreadId]);
 
   // Track last processed selection to avoid repeated scheduling
   const lastSelectionIdRef = useRef<string | null>(null);

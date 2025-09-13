@@ -58,7 +58,7 @@ export function useChatMessages(threadId: string | null) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchMessages = useCallback(async () => {
+  const fetchMessages = useCallback(async (silent = false) => {
     console.log('=== useChatMessages fetchMessages called ===');
     console.log('Thread ID:', threadId);
     console.log('Token available:', !!token);
@@ -70,7 +70,7 @@ export function useChatMessages(threadId: string | null) {
     }
 
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       setError(null);
       
       console.log('Fetching messages for thread:', threadId);
@@ -83,24 +83,25 @@ export function useChatMessages(threadId: string | null) {
       console.error('Chat messages fetch error:', err);
       setMessages([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [threadId, token]);
 
   useEffect(() => {
     console.log('=== useChatMessages useEffect triggered ===');
     console.log('Thread ID changed to:', threadId);
-    fetchMessages();
+    fetchMessages(false);
   }, [threadId, token, fetchMessages]);
 
-  const refreshMessages = () => {
-    fetchMessages();
+  const refreshMessages = (silent = false) => {
+    fetchMessages(silent);
   };
 
   return {
     messages,
     loading,
     error,
+    // background refresh caller can pass silent=true to avoid UI flicker
     refreshMessages
   };
 }

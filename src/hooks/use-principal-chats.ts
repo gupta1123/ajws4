@@ -13,6 +13,7 @@ export function usePrincipalChats() {
   const [chatsData, setChatsData] = useState<PrincipalChatsResponse['data'] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [polling, setPolling] = useState(false);
   const [filters, setFilters] = useState<PrincipalChatsParams>({
     chat_type: 'all',
     includes_me: 'yes',
@@ -23,7 +24,7 @@ export function usePrincipalChats() {
     class_division_id: undefined
   });
 
-  const fetchChats = useCallback(async (params: PrincipalChatsParams = {}) => {
+  const fetchChats = useCallback(async (params: PrincipalChatsParams = {}, silent = false) => {
     if (!token) {
       setError('Authentication required');
       setLoading(false);
@@ -31,7 +32,7 @@ export function usePrincipalChats() {
     }
 
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       setError(null);
 
       const response = await principalChatsServices.getPrincipalChats(params, token);
@@ -41,7 +42,7 @@ export function usePrincipalChats() {
       setError(errorMessage);
       console.error('Principal chats fetch error:', err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [token]);
 
@@ -64,6 +65,26 @@ export function usePrincipalChats() {
     if (user?.role === 'principal' || user?.role === 'admin') {
       fetchChats(filters);
     }
+  }, [user?.role, token, fetchChats, filters]);
+
+  // Poll chats periodically so new messages/threads appear automatically
+  useEffect(() => {
+    const eligible = (user?.role === 'principal' || user?.role === 'admin') && !!token;
+    if (!eligible) return;
+
+    setPolling(true);
+    let cancelled = false;
+    const interval = setInterval(() => {
+      if (!cancelled) {
+        fetchChats(filters, true); // silent refresh to avoid page skeleton flicker
+      }
+    }, 5000); // 5s interval for principal/admin overview refresh
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      setPolling(false);
+    };
   }, [user?.role, token, fetchChats, filters]);
 
   const refreshChats = () => {
